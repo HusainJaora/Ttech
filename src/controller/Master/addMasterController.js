@@ -15,5 +15,5 @@ const addSupplier = async(req,res)=>{
     }
 };
 
-module.exports = addSupplier
+module.exports = {addSupplier}
 

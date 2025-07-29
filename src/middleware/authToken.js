@@ -1,10 +1,10 @@
 const jwt = require("jsonwebtoken");
 const ensureAuthenricated = (req,res,next)=>{
     const auth = req.header('Authorization');
-    if(!auth || !auth.startWith("Bearer ")){
+    if(!auth || !auth.startsWith("Bearer ")){
         return res.status(403).json({message:'unauthorized, JWT token is required'});
     }
-    const token = auth.split("")[1];
+    const token = auth.split(" ")[1];
     // Extract the actual token
 
     try {
@@ -17,3 +17,4 @@ const ensureAuthenricated = (req,res,next)=>{
     }
 };
 
+module.exports = ensureAuthenricated;
