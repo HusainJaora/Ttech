@@ -1,6 +1,6 @@
 const joi = require("joi");
 const db = require("../db/database");
-
+                  // supplier validation
 const validateDuplicateSupplier = async(req,res,next)=>{
    const {supplier_Legal_name} = req.body;
 
@@ -22,6 +22,7 @@ next();
 const supplierValidation = async (req,res,next)=>{
     const schema = joi.object({
       supplier_Legal_name: joi.string()
+      .trim()
       .required()
       .messages({
          "string.base":"Legal name must be string",
@@ -29,12 +30,14 @@ const supplierValidation = async (req,res,next)=>{
          "any.required":"Legal name is required"
       }),
       supplier_Ledger_name:joi.string()
+      .trim()
       .optional()
       .allow("")
       .messages({
          "string.base":" Ledger name must be string"
       }),
       supplier_contact:joi.string()
+      .trim()
       .pattern(/^[0-9]{10}$/)
       .required()
       .messages({
@@ -44,12 +47,14 @@ const supplierValidation = async (req,res,next)=>{
         "any.required": "Phone number is required",
       }),
       supplier_address:joi.string()
+      .trim()
       .optional()
       .allow("")
       .messages({
          "string.base":" Address name must be string"
       }),
       supplier_contact_name:joi.string()
+      .trim()
       .required()
       .messages({
          "string.base":"Contact person name must be string",
@@ -57,6 +62,7 @@ const supplierValidation = async (req,res,next)=>{
          "any.required":"Contact person name is required"
       }),
       supplier_other:joi.string()
+      .trim()
       .optional()
       .allow("")
       .messages({
@@ -73,8 +79,48 @@ const supplierValidation = async (req,res,next)=>{
     next();
 }
 
+                  //Brand Vaalidation
+const validateDuplicateBrand = async(req,res,next)=>{
+   const {brand_name} = req.body;
+
+   try {
+      const [existing]= await db.query("SELECT * FROM brand WHERE brand_name=?",[brand_name.trim()]);
+
+      if(existing.length > 0){
+         return res.status(409).json({error:"Brand already exist with same name"});
+      }
+      next();
+
+      
+   } catch (error) {
+      res.status(500).json({error:error.message});
+      
+   }
+}
+const validateBrand = async(req,res,next)=>{
+   const schema = joi.object({
+      brand_name: joi.string()
+      .trim()
+      .required()
+      .messages({
+         "string.base":"Brand name must be string",
+         "string.empty":"Brand name is required",
+         "any.required":"Brand name is required"
+      }),
+   });
+   const {error} = schema.validate(req.body);
+
+    if(error){
+      return res.status(400).json({
+         error: error.details[0].message
+      });
+    }
+    next();   
+}
+
 module.exports ={
    validateDuplicateSupplier,
-   supplierValidation
-
+   supplierValidation,
+   validateDuplicateBrand,
+   validateBrand,
 }

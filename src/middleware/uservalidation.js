@@ -21,6 +21,7 @@ const validateDuplicateUser=async(req,res,next)=>{
 const signupValidation = async (req, res, next) => {
     const schema = joi.object({
       username: joi.string()
+        .trim()
         .min(3)
         .max(30)
         .required()
@@ -33,6 +34,7 @@ const signupValidation = async (req, res, next) => {
         }),
   
       email: joi.string()
+        .trim()
         .email()
         .required()
         .messages({
@@ -42,6 +44,7 @@ const signupValidation = async (req, res, next) => {
         }),
   
       password: joi.string()
+        .trim()
         .min(6)
         .max(20)
         .required()
@@ -67,11 +70,11 @@ const signupValidation = async (req, res, next) => {
 
   const validateLogin = async (req, res, next) => {
     const tableFeild = joi.object({
-      username: joi.string().required().messages({
+      username: joi.string().trim().required().messages({
         "any.required": "Username is required",
         "string.empty": "Username cannot be empty",
       }),
-      password: joi.string().required().messages({
+      password: joi.string().trim().required().messages({
         "any.required": "Password is required",
         "string.empty": "Password cannot be empty",
       }),

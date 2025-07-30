@@ -15,5 +15,22 @@ const addSupplier = async(req,res)=>{
     }
 };
 
-module.exports = {addSupplier}
+const addBrand = async(req,res)=>{
+    const {brand_name} = req.body;
+    try {
+        await db.query("INSERT INTO brand (brand_name) VALUES(?)",
+            [brand_name.trim()]
+        )
+        res.status(200).json({message:"Brand added successfully"})
+        
+    } catch (error) {
+        res.status(500).json({error:error.message});
+        
+    }
+};
+
+module.exports = {
+    addSupplier,
+    addBrand
+}
 
