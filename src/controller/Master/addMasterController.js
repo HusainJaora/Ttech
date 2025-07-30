@@ -28,9 +28,21 @@ const addBrand = async(req,res)=>{
         
     }
 };
+const addTechnician = async(req,res)=>{
+    const {technician_name,technician_phone} = req.body;
+    try {
+        await db.query("INSERT INTO technicians (technician_name,technician_phone) VALUES(?,?)",[technician_name.trim(),technician_phone.trim()]);
+        res.status(200).json({message:"Technicain added successfully"})
+        
+    } catch (error) {
+        res.status(500).json({error:error.message});
+    }
+
+};
 
 module.exports = {
     addSupplier,
-    addBrand
+    addBrand,
+    addTechnician
 }
 
