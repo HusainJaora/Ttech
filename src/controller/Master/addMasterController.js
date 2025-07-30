@@ -40,9 +40,22 @@ const addTechnician = async(req,res)=>{
 
 };
 
+const addProductCategories = async(req,res)=>{
+    const {product_category_name} = req.body;
+    try {
+        await db.query("INSERT INTO product_categories (product_category_name) VALUES(?)",[product_category_name.trim()]);
+        res.status(200).json({message:"Product category added successfully"});
+        
+    } catch (error) {
+        res.status(500).json({error:error.message});
+    }
+
+};
+
 module.exports = {
     addSupplier,
     addBrand,
-    addTechnician
+    addTechnician,
+    addProductCategories
 }
 

@@ -168,11 +168,52 @@ const validateTechnician = async(req,res,next)=>{
 
 }
 
-module.exports ={
+const validateDuplicateProductCategory= async(req,res,next)=>{
+   const {product_category_name}= req.body
+   try {
+      const [existing]=await db.query("SELECT * FROM product_categories WHERE product_category_name=?",[product_category_name.trim()])
+      
+      if(existing.length>0){
+         return res.status(409).json({error:"Category already exist with same name"});
+
+      }
+      next();
+   } catch (error) {
+      res.status(500).json({error:error.message});
+   }
+}
+
+const validateProductCategory = async(req,res,next)=>{
+   const schema = joi.object({
+      product_category_name: joi.string()
+      .trim()
+      .required()
+      .messages({
+         "string.base":"Category name must be string",
+         "string.empty":"Category name is required",
+         "any.required":"Category name is required"
+
+      })
+   })
+   const {error} = schema.validate(req.body);
+
+    if(error){
+      return res.status(400).json({
+         error: error.details[0].message
+      });
+    }
+    next();
+
+}
+
+
+module.exports ={ 
    validateDuplicateSupplier,
    supplierValidation,
    validateDuplicateBrand,
    validateBrand,
    validateDuplicateTechnician,
-   validateTechnician
+   validateTechnician,
+   validateDuplicateProductCategory,
+   validateProductCategory
 }
