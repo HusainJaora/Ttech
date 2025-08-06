@@ -10,21 +10,19 @@ const updateSupplier = async (req, res) => {
         supplier_other
     } = req.body;
     const signup_id = req.user?.signup_id;
-    const supplier_id = req.params.supplier_id;
+    const {supplier_id} = req.params;
 
     if (!supplier_id || !signup_id) {
         return res.status(400).json({ error: "Supplier ID and Signup ID are require." })
     }
 
     try {
-        console.log("Decoded token:", req.user);  // Debug
-        console.log("Supplier ID:", req.params.supplier_id); // Debug
         const [existing] = await db.query(`
             SELECT * FROM suppliers WHERE supplier_id=? AND signup_id=?
             `, [supplier_id, signup_id])
 
         if (existing.length === 0) {
-            return res.status(404).json({ error: "Supplier not found or unauthorized.", supplier_id, signup_id});
+            return res.status(404).json({ error: "Supplier not found or unauthorized."});
         }
 
         await db.query(`UPDATE suppliers SET
@@ -53,5 +51,34 @@ const updateSupplier = async (req, res) => {
     }
 
 }
+const updatebrand = async (req,res)=>{
+    const {brand_name} =req.body;
+    const {brand_id} = req.params;
+    const signup_id = req.user.signup_id;
 
-module.exports = {updateSupplier};
+    try {
+        if (!brand_id || !signup_id) {
+            return res.status(400).json({ error: "Supplier ID and Signup ID are require." });
+        }
+
+        const [existing] = await db.query(`
+            SELECT * FROM brand WHERE brand_id=? AND signup_id=?
+            `, [brand_id, signup_id]);
+        
+        if(existing.length === 0){
+            return res.status(404).json({ error: "Brand name not found or unauthorized."});
+        }
+
+        await db.query(`
+            UPDATE brand SET brand_name=? WHERE brand_id = ? AND signup_id = ?`,[brand_name?.trim() || null, brand_id, signup_id]);
+
+            res.status(200).json({message:"Brand updated succesfully"});    
+        
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+        
+    }
+
+}
+
+module.exports = {updateSupplier,updatebrand};
