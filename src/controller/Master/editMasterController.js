@@ -106,6 +106,31 @@ const updateTechnician = async (req,res)=>{
     }
 
 }
+const updateProductCategories = async (req,res)=>{
+    const {product_category_name} = req.body;
+    const {signup_id} = req.user;
+    const {product_category_id} = req.params;
+
+    try {
+        if (!product_category_id || !signup_id) {
+            return res.status(400).json({ error: "Product Category ID and Signup ID are require."});
+        }
+
+        const [existing] = await db.query(`
+            SELECT * FROM product_categories WHERE product_category_id=? AND signup_id=?`,[product_category_id,signup_id]);
+        if(existing.length === 0){
+            res.status(404).json({error: "Product Category not found or unauthorized."})
+        }
+        await db.query(`
+            UPDATE product_categories SET product_category_name=? WHERE product_category_id=? AND signup_id=?`,[product_category_name.trim()|| null,product_category_id,signup_id]);
+        
+        res.status(200).json({message:"Product category updated successfully."});    
+
+        
+    } catch (error) {
+        
+    }
+}
 
 
-module.exports = {updateSupplier,updatebrand,updateTechnician};
+module.exports = {updateSupplier,updatebrand,updateTechnician,updateProductCategories};
