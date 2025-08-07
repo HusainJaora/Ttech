@@ -14,6 +14,4 @@ router.post("/add-technician",validateToken,validateDuplicateTechnician,validate
 // Category
 router.post("/add-category",validateToken,validateDuplicateProductCategory,validateProductCategory,addProductCategories);
 
-
-
 module.exports = router;

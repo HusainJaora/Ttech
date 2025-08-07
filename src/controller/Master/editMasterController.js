@@ -81,4 +81,31 @@ const updatebrand = async (req,res)=>{
 
 }
 
-module.exports = {updateSupplier,updatebrand};
+const updateTechnician = async (req,res)=>{
+    const {technician_name,technician_phone} = req.body;
+    const {signup_id} = req.user
+    const {technician_id} =req.params;
+
+    try {
+        if (!technician_id || !signup_id) {
+            return res.status(400).json({ error: "Technician ID and Signup ID are require." });
+        }
+
+        const [existing] = await db.query(`
+            SELECT * FROM technicians WHERE technician_id=? AND signup_id=?`,[technician_id,signup_id]);
+
+            if(existing.length === 0){
+                return res.status(404).json({ error: "Technician name not found or unauthorized."});
+            }
+        await db.query(`UPDATE technicians SET technician_name=?, technician_phone=? WHERE technician_id=? AND signup_id=? `,[technician_name.trim(),technician_phone.trim()|| null, technician_id, signup_id]);
+
+        res.status(200).json({ message: "Technician updated successfully." });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+
+}
+
+
+module.exports = {updateSupplier,updatebrand,updateTechnician};
