@@ -20,7 +20,7 @@ const addQuotation = async (req, res) => {
         const now = new Date();
         const month = now.toLocaleString("default",{month:"short"}).toUpperCase();
         const year = now.getFullYear().toString().slice(-2);
-        const [latest] = await db.query(
+        const [latest] = await connection.query(
             "SELECT MAX(quotation_serial) AS max_serial FROM quotation WHERE signup_id=?",[signup_id]
         );
         const nextSerial =(latest[0].max_serial || 0) + 1;
@@ -32,7 +32,7 @@ const addQuotation = async (req, res) => {
         },0);
           
         // Insert into quotation table
-        const [quotationResult] = await db.query(
+        const [quotationResult] = await connection.query(
           `INSERT INTO quotation (
             signup_id, quotation_serial, quotation_no,
             customer_name, customer_contact, customer_email,
@@ -62,7 +62,7 @@ const addQuotation = async (req, res) => {
           item.supplier_id || null
         ]);
         
-        await db.query(
+        await connection.query(
           `INSERT INTO quotation_items (
             quotation_id, product_name, product_description,
             quantity, unit_price, brand_id, supplier_id
@@ -143,7 +143,7 @@ const updateQuotation = async (req, res) => {
 
       if (fields.length > 0) {
         values.push(quotation_id, signup_id);
-        const [updateResult] = await db.query(
+        const [updateResult] = await connection.query(
           `UPDATE quotation SET ${fields.join(", ")} WHERE quotation_id = ? AND signup_id = ?`,
           values
         );
@@ -159,7 +159,7 @@ const updateQuotation = async (req, res) => {
       for (const item of items) {
         if (item.item_id) {
           // Update existing item
-          await db.query(
+          await connection.query(
             `UPDATE quotation_items SET 
               product_name = ?, 
               product_description = ?, 
@@ -181,7 +181,7 @@ const updateQuotation = async (req, res) => {
           );
         } else {
           // Insert new item
-          await db.query(
+          await connection.query(
             `INSERT INTO quotation_items (
               quotation_id, product_name, product_description,
               quantity, unit_price, brand_id, supplier_id
@@ -202,20 +202,20 @@ const updateQuotation = async (req, res) => {
 
     // If there are deleted_item_ids → delete them
     if (deleted_item_ids && deleted_item_ids.length > 0) {
-       await db.query(
+       await connection.query(
         `DELETE FROM quotation_items 
          WHERE item_id IN (?) AND quotation_id = ?`,
         [deleted_item_ids, quotation_id]
       )
     }
-    const [[{ sum }]] = await db.query(
+    const [[{ sum }]] = await connection.query(
       `SELECT SUM(quantity * unit_price) AS sum 
        FROM quotation_items 
        WHERE quotation_id = ?`,
       [quotation_id]
     );
     
-    await db.query(
+    await connection.query(
       `UPDATE quotation SET total_amount = ? WHERE quotation_id = ?`,
       [sum || 0, quotation_id]
     );
@@ -232,4 +232,39 @@ const updateQuotation = async (req, res) => {
   }
 };
 
-module.exports ={addQuotation,updateQuotation};
+const deleteQuotation = async(req,res)=>{
+  const {quotation_id} = req.params;
+  const {signup_id} = req.user;
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [quotation] = await connection.query(`
+      SELECT * FROM quotation WHERE quotation_id=? AND signup_id=?`,[quotation_id,signup_id]);
+    
+    if(quotation.length === 0){
+      return res.status(404).json({error:"Quotation not found or unauthorized"});
+    }
+    await connection.query(`
+      DELETE FROM quotation_items WHERE quotation_id=?`,[quotation_id]);
+    
+    await connection.query(`
+      DELETE FROM quotation WHERE quotation_id=? AND signup_id=?`,[quotation_id,signup_id]);
+
+    await connection.commit();
+    
+    res.status(200).json({message:"Quotation and its items deleted successfully",quotation_id})
+    
+  } catch (error) {
+    await connection.rollback();
+    console.log(error)
+    res.status(500).json({ error: "Internal Server Error" });
+    
+  }
+  finally{
+    connection.release();
+
+  }
+}
+
+module.exports ={addQuotation,updateQuotation,deleteQuotation};
