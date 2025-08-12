@@ -13,4 +13,4 @@ router.delete("/delete-technician/:technician_id",validateToken,deleteTechnician
 router.delete("/delete-productCategory/:product_category_id",validateToken,deleteProductCategories);
 
 
-module.exports = router;
+module.exports = router;    
