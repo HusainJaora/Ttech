@@ -51,36 +51,6 @@ const updateSupplier = async (req, res) => {
     }
 
 }
-const updatebrand = async (req,res)=>{
-    const {brand_name} =req.body;
-    const {brand_id} = req.params;
-    const signup_id = req.user.signup_id;
-
-    try {
-        if (!brand_id || !signup_id) {
-            return res.status(400).json({ error: "Supplier ID and Signup ID are require." });
-        }
-
-        const [existing] = await db.query(`
-            SELECT * FROM brand WHERE brand_id=? AND signup_id=?
-            `, [brand_id, signup_id]);
-        
-        if(existing.length === 0){
-            return res.status(404).json({ error: "Brand name not found or unauthorized."});
-        }
-
-        await db.query(`
-            UPDATE brand SET brand_name=? WHERE brand_id = ? AND signup_id = ?`,[brand_name?.trim() || null, brand_id, signup_id]);
-
-            res.status(200).json({message:"Brand updated succesfully"});    
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-        
-    }
-
-}
-
 const updateTechnician = async (req,res)=>{
     const {technician_name,technician_phone} = req.body;
     const {signup_id} = req.user
@@ -133,4 +103,4 @@ const updateProductCategories = async (req,res)=>{
 }
 
 
-module.exports = {updateSupplier,updatebrand,updateTechnician,updateProductCategories};
+module.exports = {updateSupplier,updateTechnician,updateProductCategories};

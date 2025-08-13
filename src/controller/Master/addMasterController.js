@@ -39,22 +39,7 @@ const addSupplier = async (req, res) => {
       res.status(500).json({ error: error.message });
     }
 };
-  
 
-const addBrand = async(req,res)=>{
-    const {brand_name} = req.body;
-    const signup_id = req.user.signup_id;
-    try {
-        await db.query("INSERT INTO brand (brand_name, signup_id) VALUES(?,?)",
-            [brand_name.trim(), signup_id]
-        )
-        res.status(200).json({message:"Brand added successfully"})
-        
-    } catch (error) {
-        res.status(500).json({error:error.message});
-        
-    }
-};
 const addTechnician = async(req,res)=>{
     const {technician_name,technician_phone} = req.body;
     const signup_id = req.user.signup_id;
@@ -83,7 +68,6 @@ const addProductCategories = async(req,res)=>{
 
 module.exports = {
     addSupplier,
-    addBrand,
     addTechnician,
     addProductCategories
 }

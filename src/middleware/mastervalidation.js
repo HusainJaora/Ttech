@@ -82,46 +82,6 @@ const supplierValidation = async (req, res, next) => {
    }
    next();
 }
-
-//Brand Validation
-const validateDuplicateBrand = async (req, res, next) => {
-   const { brand_name } = req.body;
-   const signup_id = req.user.signup_id;
-
-   try {
-      const [existing] = await db.query("SELECT * FROM brand WHERE brand_name=? AND signup_id = ?", [brand_name.trim(),signup_id]);
-
-      if (existing.length > 0) {
-         return res.status(409).json({ error: "Brand already exist with same name" });
-      }
-      next();
-
-
-   } catch (error) {
-      res.status(500).json({ error: error.message });
-
-   }
-}
-const validateBrand = async (req, res, next) => {
-   const schema = joi.object({
-      brand_name: joi.string()
-         .trim()
-         .required()
-         .messages({
-            "string.base": "Brand name must be string",
-            "string.empty": "Brand name is required",
-            "any.required": "Brand name is required"
-         }),
-   });
-   const { error } = schema.validate(req.body);
-
-   if (error) {
-      return res.status(400).json({
-         error: error.details[0].message
-      });
-   }
-   next();
-}
 // Technician Validation
 const validateDuplicateTechnician = async (req, res, next) => {
    const { technician_phone } = req.body
@@ -138,7 +98,6 @@ const validateDuplicateTechnician = async (req, res, next) => {
       res.status(500).json({ error: error.message });
    }
 }
-
 const validateTechnician = async (req, res, next) => {
    const schema = joi.object({
       technician_name: joi.string()
@@ -218,8 +177,6 @@ const validateProductCategory = async (req, res, next) => {
 module.exports = {
    validateDuplicateSupplier,
    supplierValidation,
-   validateDuplicateBrand,
-   validateBrand,
    validateDuplicateTechnician,
    validateTechnician,
    validateDuplicateProductCategory,

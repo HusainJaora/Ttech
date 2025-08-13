@@ -20,26 +20,6 @@ const deleteSupplier = async(req,res)=>{
         
     }
 };
-const deleteBrand = async(req,res)=>{
-    const {brand_id} = req.params;
-    const {signup_id} = req.user;
-
-    try {
-
-        const [result] = await db.query(`
-            DELETE FROM brand WHERE brand_id=? AND signup_id=?`,[ brand_id,signup_id]);
-        
-            if(result.affectedRows ===0){
-                res.status(404).json({message:"Brand not found or unauthorized"})
-            };
-
-            res.status(200).json({message:"Brand deleted successfully"});
-        
-    } catch (error) {
-        res.status(500).json({error:error.message})
-        
-    }
-};
 const deleteTechnician = async(req,res)=>{
     const { technician_id } = req.params;
     const {signup_id} = req.user;
@@ -82,4 +62,4 @@ const deleteProductCategories = async(req,res)=>{
 };
 
 
-module.exports = {deleteSupplier,deleteBrand,deleteTechnician,deleteProductCategories};
+module.exports = {deleteSupplier,deleteTechnician,deleteProductCategories};

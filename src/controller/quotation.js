@@ -1,87 +1,86 @@
 const db = require("../db/database");
 
 const addQuotation = async (req, res) => {
-    const {
-         customer_name,
-         customer_contact,
-         customer_email,
-         notes,
-         items
-    } = req.body
-    const signup_id = req.user.signup_id;
+  const {
+    customer_name,
+    customer_contact,
+    customer_email,
+    notes,
+    items
+  } = req.body
+  const signup_id = req.user.signup_id;
 
-    if (!items || items.length === 0) {
-        return res.status(400).json({ error: "Quotation must include at least one item" });
-      }
-      const connection = await db.getConnection();
-      try {
-        await connection.beginTransaction();
-        // Genrate quotation number
-        const now = new Date();
-        const month = now.toLocaleString("default",{month:"short"}).toUpperCase();
-        const year = now.getFullYear().toString().slice(-2);
-        const [latest] = await connection.query(
-            "SELECT MAX(quotation_serial) AS max_serial FROM quotation WHERE signup_id=?",[signup_id]
-        );
-        const nextSerial =(latest[0].max_serial || 0) + 1;
-        const quotation_no = `Q00${nextSerial}/${month}/${year}`;
+  if (!items || items.length === 0) {
+    return res.status(400).json({ error: "Quotation must include at least one item" });
+  }
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    // Genrate quotation number
+    const now = new Date();
+    const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
+    const year = now.getFullYear().toString().slice(-2);
+    const [latest] = await connection.query(
+      "SELECT MAX(quotation_serial) AS max_serial FROM quotation WHERE signup_id=?", [signup_id]
+    );
+    const nextSerial = (latest[0].max_serial || 0) + 1;
+    const quotation_no = `Q00${nextSerial}/${month}/${year}`;
 
-        // calculate total amount
-        const total_amount = items.reduce((sum,item)=>{
-          return sum +(item.quantity * item.unit_price)
-        },0);
-          
-        // Insert into quotation table
-        const [quotationResult] = await connection.query(
-          `INSERT INTO quotation (
+    // calculate total amount
+    const total_amount = items.reduce((sum, item) => {
+      return sum + (item.quantity * item.unit_price)
+    }, 0);
+
+    // Insert into quotation table
+    const [quotationResult] = await connection.query(
+      `INSERT INTO quotation (
             signup_id, quotation_serial, quotation_no,
             customer_name, customer_contact, customer_email,
             total_amount, notes
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            signup_id,
-            nextSerial,
-            quotation_no,
-            customer_name,
-            customer_contact,
-            customer_email,
-            total_amount,
-            notes
-          ]
-        );
+      [
+        signup_id,
+        nextSerial,
+        quotation_no,
+        customer_name,
+        customer_contact,
+        customer_email,
+        total_amount,
+        notes
+      ]
+    );
 
-        const quotation_id = quotationResult.insertId;
-        // Insert into quotation_items table
-        const itemInsertData = items.map(item => [
-          quotation_id,
-          item.product_name,
-          item.product_description || '',
-          item.quantity,
-          item.unit_price,
-          item.brand_id || null,
-          item.supplier_id || null
-        ]);
-        
-        await connection.query(
-          `INSERT INTO quotation_items (
+    const quotation_id = quotationResult.insertId;
+    // Insert into quotation_items table
+    const itemInsertData = items.map(item => [
+      quotation_id,
+      item.product_name,
+      item.product_description || '',
+      item.quantity,
+      item.unit_price,
+      item.supplier_id || null
+    ]);
+
+    await connection.query(
+      `INSERT INTO quotation_items (
             quotation_id, product_name, product_description,
-            quantity, unit_price, brand_id, supplier_id
+            quantity, unit_price,supplier_id
           ) VALUES ?`,
-          [itemInsertData]
-        );
-        await connection.commit();
-        res.status(201).json({
-          message: "Quotation created successfully",
-          quotation_id,
-          quotation_no
-        });
-      } catch (error) {
-        await connection.rollback();
-        console.error("Error creating quotation:", error);
-        res.status(500).json({ error: "Internal Server Error" });
-      }finally{
-        connection.release();
-      }
+      [itemInsertData]
+    );
+    await connection.commit();
+    res.status(201).json({
+      message: "Quotation created successfully",
+      quotation_id,
+      quotation_no
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error creating quotation:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    connection.release();
+  }
 }
 
 const updateQuotation = async (req, res) => {
@@ -97,7 +96,7 @@ const updateQuotation = async (req, res) => {
 
   const signup_id = req.user.signup_id;
   const connection = await db.getConnection();
-  
+
   try {
     await connection.beginTransaction();  //Start the transaction
     // If customer info is provided → update quotation table
@@ -165,7 +164,6 @@ const updateQuotation = async (req, res) => {
               product_description = ?, 
               quantity = ?, 
               unit_price = ?, 
-              brand_id = ?, 
               supplier_id = ?
             WHERE item_id = ? AND quotation_id = ?`,
             [
@@ -173,7 +171,6 @@ const updateQuotation = async (req, res) => {
               item.product_description || '',
               item.quantity,
               item.unit_price,
-              item.brand_id || null,
               item.supplier_id || null,
               item.item_id,
               quotation_id
@@ -184,15 +181,14 @@ const updateQuotation = async (req, res) => {
           await connection.query(
             `INSERT INTO quotation_items (
               quotation_id, product_name, product_description,
-              quantity, unit_price, brand_id, supplier_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              quantity, unit_price, supplier_id
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
             [
               quotation_id,
               item.product_name,
               item.product_description || '',
               item.quantity,
               item.unit_price,
-              item.brand_id || null,
               item.supplier_id || null
             ]
           );
@@ -202,7 +198,7 @@ const updateQuotation = async (req, res) => {
 
     // If there are deleted_item_ids → delete them
     if (deleted_item_ids && deleted_item_ids.length > 0) {
-       await connection.query(
+      await connection.query(
         `DELETE FROM quotation_items 
          WHERE item_id IN (?) AND quotation_id = ?`,
         [deleted_item_ids, quotation_id]
@@ -214,7 +210,7 @@ const updateQuotation = async (req, res) => {
        WHERE quotation_id = ?`,
       [quotation_id]
     );
-    
+
     await connection.query(
       `UPDATE quotation SET total_amount = ? WHERE quotation_id = ?`,
       [sum || 0, quotation_id]
@@ -227,44 +223,44 @@ const updateQuotation = async (req, res) => {
     await connection.rollback() // transaction did not completed, dont save any changes in db
     console.error("Error updating quotation:", error);
     res.status(500).json({ error: "Internal Server Error" });
-  }finally{
+  } finally {
     connection.release();
   }
 };
 
-const deleteQuotation = async(req,res)=>{
-  const {quotation_id} = req.params;
-  const {signup_id} = req.user;
+const deleteQuotation = async (req, res) => {
+  const { quotation_id } = req.params;
+  const { signup_id } = req.user;
   const connection = await db.getConnection();
   try {
     await connection.beginTransaction();
 
     const [quotation] = await connection.query(`
-      SELECT * FROM quotation WHERE quotation_id=? AND signup_id=?`,[quotation_id,signup_id]);
-    
-    if(quotation.length === 0){
-      return res.status(404).json({error:"Quotation not found or unauthorized"});
+      SELECT * FROM quotation WHERE quotation_id=? AND signup_id=?`, [quotation_id, signup_id]);
+
+    if (quotation.length === 0) {
+      return res.status(404).json({ error: "Quotation not found or unauthorized" });
     }
     await connection.query(`
-      DELETE FROM quotation_items WHERE quotation_id=?`,[quotation_id]);
-    
+      DELETE FROM quotation_items WHERE quotation_id=?`, [quotation_id]);
+
     await connection.query(`
-      DELETE FROM quotation WHERE quotation_id=? AND signup_id=?`,[quotation_id,signup_id]);
+      DELETE FROM quotation WHERE quotation_id=? AND signup_id=?`, [quotation_id, signup_id]);
 
     await connection.commit();
-    
-    res.status(200).json({message:"Quotation and its items deleted successfully",quotation_id})
-    
+
+    res.status(200).json({ message: "Quotation and its items deleted successfully", quotation_id })
+
   } catch (error) {
     await connection.rollback();
     console.log(error)
     res.status(500).json({ error: "Internal Server Error" });
-    
+
   }
-  finally{
+  finally {
     connection.release();
 
   }
 }
 
-module.exports ={addQuotation,updateQuotation,deleteQuotation};
+module.exports = { addQuotation, updateQuotation, deleteQuotation };
