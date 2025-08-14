@@ -6,6 +6,7 @@ const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
 const addquotationRoute = require("./routes/quotationRoute.js");
 const masterEditingRoute = require("./routes/Master/editmasterRouter.js");
 const masterDeletingRoute = require("./routes/Master/deletemasterRoute.js");
+const repairRoute = require("./routes/repair/inquiryRoute.js");
 
 const app = express();
 app.use(express.json());
@@ -20,6 +21,7 @@ app.use("/master-add",masterAddingRoute);
 app.use("/quotation",addquotationRoute);
 app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
+app.use("/repair-inquiry",repairRoute);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, ()=> console.log(`Server is running on port ${PORT}`));
