@@ -1,33 +1,27 @@
 const { exist } = require("joi");
 const db = require("../../db/database");
+const { checkCustomer, createCustomer } = require("../../utils/getOrCreateCustomer");
 
 // this is created to autofill the column if customer exists
 const checkCustomerByContact = async (req, res) => {
     const { customer_contact } = req.body;
     const { signup_id } = req.user;
+    const connection = await db.getConnection();
     try {
 
         if (!customer_contact) {
             return res.status(400).json({ error: "Customer contact requied" });
         }
 
-        const [customer] = await db.query(
-            `SELECT 
-         customer_id, 
-         customer_name, 
-         customer_contact,
-         customer_email, 
-         customer_address FROM customers WHERE customer_contact=? AND signup_id=? LIMIT 1`,
-            [customer_contact, signup_id]
-        );
+        const customer = await checkCustomer(connection, signup_id, customer_contact);
 
-        if (customer.length === 0) {
-            return res.status(200).json({ exists: false })
+        if (!customer) {
+            return res.status(200).json({ exists: false})
         }
 
         return res.status(200).json({
             exists: true,
-            customer: customer[0]
+            customer
         })
 
 
@@ -35,6 +29,8 @@ const checkCustomerByContact = async (req, res) => {
         console.error("Error checking customer:", error);
         res.status(500).json({ error: "Internal Server Error" });
 
+    } finally {
+        connection.release();
     }
 }
 
@@ -56,6 +52,8 @@ const addInquiry = async (req, res) => {
                 error: "Customer contact and at least one product are required"
             });
         }
+
+        await connection.beginTransaction();
         const [existingCustomer] = await connection.query(
             `SELECT customer_id FROM customers 
              WHERE signup_id=? AND customer_contact=? 
@@ -66,12 +64,13 @@ const addInquiry = async (req, res) => {
         if (existingCustomer.length > 0) {
             customer_id = existingCustomer[0].customer_id;
         } else {
-            const [newCustomer] = await connection.query(
-                `INSERT INTO customers (signup_id, customer_name, customer_contact, customer_email, customer_address) 
-               VALUES (?, ?, ?, ?, ?)`,
-                [signup_id, customer_name, customer_contact, customer_email, customer_address]
-            );
-            customer_id = newCustomer.insertId;
+            const newCustomer = await createCustomer(connection, signup_id, {
+                customer_name,
+                customer_contact,
+                customer_email,
+                customer_address
+            });
+            customer_id = newCustomer.customer_id;
         }
         //  Generate inquiry serial & number
         const now = new Date();
@@ -122,9 +121,9 @@ const addInquiry = async (req, res) => {
         console.error("Error creating inquiry:", error);
         res.status(500).json({ error: "Internal Server Error" });
 
-    }finally {
+    } finally {
         connection.release();
-      }
+    }
 }
 
-module.exports ={checkCustomerByContact,addInquiry}
+module.exports = { checkCustomerByContact, addInquiry }
