@@ -1,21 +1,42 @@
 const db = require("../db/database");
+const { createCustomer } = require("../utils/getOrCreateCustomer");
 
 const addQuotation = async (req, res) => {
   const {
     customer_name,
     customer_contact,
-    customer_email,
+    customer_email = "NA",
+    customer_address = "NA",
     notes,
     items
   } = req.body
-  const signup_id = req.user.signup_id;
+  const { signup_id } = req.user;
 
-  if (!items || items.length === 0) {
-    return res.status(400).json({ error: "Quotation must include at least one item" });
-  }
+
   const connection = await db.getConnection();
   try {
+
     await connection.beginTransaction();
+
+    const [existingCustomer] = await connection.query(
+      `SELECT customer_id FROM customers 
+       WHERE signup_id=? AND customer_contact=? 
+       LIMIT 1`,
+      [signup_id, customer_contact]
+    );
+    let customer_id;
+    if (existingCustomer.length > 0) {
+      customer_id = existingCustomer[0].customer_id;
+    } else {
+      const newCustomer = await createCustomer(connection, signup_id, {
+        customer_name,
+        customer_contact,
+        customer_email,
+        customer_address
+      });
+      customer_id = newCustomer.customer_id;
+    }
+
     // Genrate quotation number
     const now = new Date();
     const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
@@ -34,17 +55,14 @@ const addQuotation = async (req, res) => {
     // Insert into quotation table
     const [quotationResult] = await connection.query(
       `INSERT INTO quotation (
-            signup_id, quotation_serial, quotation_no,
-            customer_name, customer_contact, customer_email,
+            signup_id,customer_id, quotation_serial, quotation_no,
             total_amount, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?)`,
       [
         signup_id,
+        customer_id,
         nextSerial,
         quotation_no,
-        customer_name,
-        customer_contact,
-        customer_email,
         total_amount,
         notes
       ]
@@ -58,13 +76,11 @@ const addQuotation = async (req, res) => {
       item.product_description || '',
       item.quantity,
       item.unit_price,
-      item.supplier_id || null
     ]);
-
     await connection.query(
       `INSERT INTO quotation_items (
             quotation_id, product_name, product_description,
-            quantity, unit_price,supplier_id
+            quantity, unit_price
           ) VALUES ?`,
       [itemInsertData]
     );
@@ -83,77 +99,36 @@ const addQuotation = async (req, res) => {
   }
 }
 
+
 const updateQuotation = async (req, res) => {
   const { quotation_id } = req.params;
   const {
-    customer_name,
-    customer_contact,
-    customer_email,
     notes,
-    items,             // optional for adding/updating items
-    deleted_item_ids   // optional for deleting items
+    items,             // optional: add/update items
+    deleted_item_ids   // optional: delete items
   } = req.body;
 
-  const signup_id = req.user.signup_id;
+  const { signup_id } = req.user;
   const connection = await db.getConnection();
 
   try {
-    await connection.beginTransaction();  //Start the transaction
-    // If customer info is provided → update quotation table
-    if (
-      customer_name !== undefined ||
-      customer_contact !== undefined ||
-      customer_email !== undefined ||
-      notes !== undefined ||
-      (items && items.length > 0)
-    ) {
-      // If items are sent → recalculate total_amount, else skip
-      let total_amount = undefined;
-      if (items && items.length > 0) {
-        total_amount = items.reduce((sum, item) => {
-          return sum + (item.quantity * item.unit_price);
-        }, 0);
-      }
+    await connection.beginTransaction();
 
-      // Build dynamic query based on provided fields
-      let fields = [];
-      let values = [];
+    // 1. Update notes only if provided
+    if (notes !== undefined) {
+      const [updateResult] = await connection.query(
+        `UPDATE quotation 
+         SET notes = ? 
+         WHERE quotation_id = ? AND signup_id = ?`,
+        [notes, quotation_id, signup_id]
+      );
 
-      if (customer_name !== undefined) {
-        fields.push("customer_name = ?");
-        values.push(customer_name);
-      }
-      if (customer_contact !== undefined) {
-        fields.push("customer_contact = ?");
-        values.push(customer_contact);
-      }
-      if (customer_email !== undefined) {
-        fields.push("customer_email = ?");
-        values.push(customer_email);
-      }
-      if (notes !== undefined) {
-        fields.push("notes = ?");
-        values.push(notes);
-      }
-      if (total_amount !== undefined) {
-        fields.push("total_amount = ?");
-        values.push(total_amount);
-      }
-
-      if (fields.length > 0) {
-        values.push(quotation_id, signup_id);
-        const [updateResult] = await connection.query(
-          `UPDATE quotation SET ${fields.join(", ")} WHERE quotation_id = ? AND signup_id = ?`,
-          values
-        );
-
-        if (updateResult.affectedRows === 0) {
-          return res.status(404).json({ error: "Quotation not found or unauthorized" });
-        }
+      if (updateResult.affectedRows === 0) {
+        return res.status(404).json({ error: "Quotation not found or unauthorized" });
       }
     }
 
-    // If items are provided → add/update them
+    // 2. Add/Update items
     if (items && items.length > 0) {
       for (const item of items) {
         if (item.item_id) {
@@ -163,15 +138,13 @@ const updateQuotation = async (req, res) => {
               product_name = ?, 
               product_description = ?, 
               quantity = ?, 
-              unit_price = ?, 
-              supplier_id = ?
-            WHERE item_id = ? AND quotation_id = ?`,
+              unit_price = ?
+             WHERE item_id = ? AND quotation_id = ?`,
             [
               item.product_name,
               item.product_description || '',
               item.quantity,
               item.unit_price,
-              item.supplier_id || null,
               item.item_id,
               quotation_id
             ]
@@ -181,29 +154,30 @@ const updateQuotation = async (req, res) => {
           await connection.query(
             `INSERT INTO quotation_items (
               quotation_id, product_name, product_description,
-              quantity, unit_price, supplier_id
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+              quantity, unit_price
+            ) VALUES (?, ?, ?, ?, ?)`,
             [
               quotation_id,
               item.product_name,
               item.product_description || '',
               item.quantity,
-              item.unit_price,
-              item.supplier_id || null
+              item.unit_price
             ]
           );
         }
       }
     }
 
-    // If there are deleted_item_ids → delete them
+    // 3. Delete items
     if (deleted_item_ids && deleted_item_ids.length > 0) {
       await connection.query(
         `DELETE FROM quotation_items 
          WHERE item_id IN (?) AND quotation_id = ?`,
         [deleted_item_ids, quotation_id]
-      )
+      );
     }
+
+    // 4. Recalculate total_amount
     const [[{ sum }]] = await connection.query(
       `SELECT SUM(quantity * unit_price) AS sum 
        FROM quotation_items 
@@ -212,15 +186,17 @@ const updateQuotation = async (req, res) => {
     );
 
     await connection.query(
-      `UPDATE quotation SET total_amount = ? WHERE quotation_id = ?`,
+      `UPDATE quotation 
+       SET total_amount = ? 
+       WHERE quotation_id = ?`,
       [sum || 0, quotation_id]
     );
 
-    await connection.commit() // transaction done save the changes to the db
+    await connection.commit();
     res.status(200).json({ message: "Quotation updated successfully" });
 
   } catch (error) {
-    await connection.rollback() // transaction did not completed, dont save any changes in db
+    await connection.rollback();
     console.error("Error updating quotation:", error);
     res.status(500).json({ error: "Internal Server Error" });
   } finally {
