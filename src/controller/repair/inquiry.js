@@ -1,4 +1,3 @@
-const { exist } = require("joi");
 const db = require("../../db/database");
 const {  createCustomer } = require("../../utils/getOrCreateCustomer");
 
@@ -9,7 +8,9 @@ const addInquiry = async (req, res) => {
         customer_contact,
         customer_email = "NA",
         customer_address = "NA",
+        notes,
         products
+
     } = req.body;
     const { signup_id } = req.user;
 
@@ -56,9 +57,9 @@ const addInquiry = async (req, res) => {
 
         const [inquiryResult] = await connection.query(
             `INSERT INTO inquires 
-             (signup_id, inquiry_serial, inquiry_no, customer_id) 
-             VALUES (?, ?, ?, ?)`,
-            [signup_id, nextSerial, inquiry_no, customer_id]
+             (signup_id, inquiry_serial, inquiry_no, customer_id,notes) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [signup_id, nextSerial, inquiry_no, customer_id, notes]
         );
         const inquiry_id = inquiryResult.insertId;
 
@@ -95,4 +96,106 @@ const addInquiry = async (req, res) => {
     }
 }
 
-module.exports = { addInquiry }
+const updateInquiry = async (req, res) => {
+    const { inquiry_id } = req.params;
+    const {
+        notes,                // optional: update notes for inquiry
+        items,                // optional: add/update items [{item_id?, product_name, problem_description, accessories_given}]
+        deleted_item_ids      // optional: array of inquiry_item IDs to delete
+    } = req.body;
+
+    const { signup_id } = req.user;
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        // 1️⃣ Check if inquiry exists and belongs to the logged-in user
+        const [inquiry] = await connection.query(
+            `SELECT inquiry_id, customer_id 
+             FROM inquires 
+             WHERE inquiry_id = ? AND signup_id = ?`,
+            [inquiry_id, signup_id]
+        );
+
+        if (inquiry.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ error: "Inquiry not found" });
+        }
+
+        // 2️⃣ Update notes only (no customer info change allowed)
+        if (notes !== undefined) {
+            await connection.query(
+                `UPDATE inquires 
+                 SET notes = ? 
+                 WHERE inquiry_id = ? AND signup_id = ?`,
+                [notes, inquiry_id, signup_id]
+            );
+        }
+
+        // 3️⃣ Delete specified items (if any)
+        if (deleted_item_ids && deleted_item_ids.length > 0) {
+            await connection.query(
+                `DELETE FROM inquiry_items 
+                 WHERE inquiry_id = ? 
+                 AND item_id IN (?)`,
+                [inquiry_id, deleted_item_ids]
+            );
+        }
+
+        // 4️⃣ Add or update items
+        if (items && items.length > 0) {
+            for (const item of items) {
+                if (item.inquiry_item_id) {
+                    // Update existing item
+                    await connection.query(
+                        `UPDATE inquiry_items 
+                         SET product_name = ?, 
+                             problem_description = ?, 
+                             accessories_given = ? 
+                         WHERE item_id = ? 
+                         AND inquiry_id = ?`,
+                        [
+                            item.product_name,
+                            item.problem_description || "NA",
+                            item.accessories_given || "NA",
+                            item.inquiry_item_id,
+                            inquiry_id
+                        ]
+                    );
+                } else {
+                    // Insert new item
+                    await connection.query(
+                        `INSERT INTO inquiry_items 
+                         (inquiry_id, product_name, problem_description, accessories_given) 
+                         VALUES (?, ?, ?, ?)`,
+                        [
+                            inquiry_id,
+                            item.product_name,
+                            item.problem_description || "NA",
+                            item.accessories_given || "NA"
+                        ]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
+
+        return res.status(200).json({
+            message: "Inquiry updated successfully",
+            inquiry_id
+        });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error updating inquiry:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+
+    } finally {
+        connection.release();
+    }
+};
+
+
+module.exports = { addInquiry,updateInquiry }
