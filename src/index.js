@@ -6,7 +6,8 @@ const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
 const addquotationRoute = require("./routes/quotationRoute.js");
 const masterEditingRoute = require("./routes/Master/editmasterRouter.js");
 const masterDeletingRoute = require("./routes/Master/deletemasterRoute.js");
-const repairRoute = require("./routes/repair/inquiryRoute.js");
+const repairInquiryRoute = require("./routes/repair/inquiryRoute.js");
+const repairInquiryStatusRoute = require("./routes/repair/inquiryStatusRoute.js")
 const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
 const customer = require("./routes/customerRoute.js");
 
@@ -23,7 +24,8 @@ app.use("/master-add",masterAddingRoute);
 app.use("/quotation",addquotationRoute);
 app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
-app.use("/repair-inquiry",repairRoute);
+app.use("/repair-inquiry",repairInquiryRoute);
+app.use("/repair-inquiry-status",repairInquiryStatusRoute);
 app.use("/check-customer",checkExistingCustomer)
 app.use("/customer",customer);
 

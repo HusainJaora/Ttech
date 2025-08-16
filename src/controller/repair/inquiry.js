@@ -110,7 +110,7 @@ const updateInquiry = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 1️⃣ Check if inquiry exists and belongs to the logged-in user
+        //  Check if inquiry exists and belongs to the logged-in user
         const [inquiry] = await connection.query(
             `SELECT inquiry_id, customer_id 
              FROM inquires 
@@ -123,7 +123,7 @@ const updateInquiry = async (req, res) => {
             return res.status(404).json({ error: "Inquiry not found" });
         }
 
-        // 2️⃣ Update notes only (no customer info change allowed)
+        //  Update notes only (no customer info change allowed)
         if (notes !== undefined) {
             await connection.query(
                 `UPDATE inquires 
@@ -133,7 +133,7 @@ const updateInquiry = async (req, res) => {
             );
         }
 
-        // 3️⃣ Delete specified items (if any)
+        //  Delete specified items (if any)
         if (deleted_item_ids && deleted_item_ids.length > 0) {
             await connection.query(
                 `DELETE FROM inquiry_items 
@@ -143,7 +143,7 @@ const updateInquiry = async (req, res) => {
             );
         }
 
-        // 4️⃣ Add or update items
+        //  Add or update items
         if (items && items.length > 0) {
             for (const item of items) {
                 if (item.inquiry_item_id) {
