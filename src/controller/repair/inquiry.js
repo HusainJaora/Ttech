@@ -197,5 +197,40 @@ const updateInquiry = async (req, res) => {
     }
 };
 
+const deleteInquiry = async (req, res) => {
+    const { inquiry_id } = req.params;
+    const { signup_id } = req.user;
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+  
+      const [inquiry] = await connection.query(`
+        SELECT * FROM inquires WHERE inquiry_id=? AND signup_id=?`, [inquiry_id, signup_id]);
+  
+      if (inquiry.length === 0) {
+        return res.status(404).json({ error: "Inquiry not found or unauthorized" });
+      }
+      await connection.query(`
+        DELETE FROM inquiry_items WHERE inquiry_id=?`, [inquiry_id]);
+  
+      await connection.query(`
+        DELETE FROM inquires WHERE inquiry_id=? AND signup_id=?`, [inquiry_id, signup_id]);
+  
+      await connection.commit();
+  
+      res.status(200).json({ message: "Inquiry and its items deleted successfully", inquiry_id })
+  
+    } catch (error) {
+      await connection.rollback();
+      console.log(error)
+      res.status(500).json({ error: "Internal Server Error" });
+  
+    }
+    finally {
+      connection.release();
+  
+    }
+}
 
-module.exports = { addInquiry,updateInquiry }
+
+module.exports = { addInquiry,updateInquiry, deleteInquiry }
