@@ -49,6 +49,10 @@ const addQuotationValidation = async (req, res, next) => {
                         "string.empty": "Product name is required",
                         "any.required": "Product name is required"
                     }),
+                    product_category_id: joi.number().integer().required().messages({
+                        "number.base": "Product Category id must be a number",
+                        "any.required": "Product Category id is required"
+                    }),
                     product_description: joi.string().trim().optional().allow(""),
                     quantity: joi.number().integer().required().messages({
                         "number.base": "Quantity must be a number",

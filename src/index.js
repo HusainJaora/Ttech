@@ -8,6 +8,7 @@ const masterEditingRoute = require("./routes/Master/editmasterRouter.js");
 const masterDeletingRoute = require("./routes/Master/deletemasterRoute.js");
 const repairRoute = require("./routes/repair/inquiryRoute.js");
 const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
+const customer = require("./routes/customerRoute.js");
 
 const app = express();
 app.use(express.json());
@@ -24,6 +25,7 @@ app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
 app.use("/repair-inquiry",repairRoute);
 app.use("/check-customer",checkExistingCustomer)
+app.use("/customer",customer);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, ()=> console.log(`Server is running on port ${PORT}`));

@@ -73,13 +73,14 @@ const addQuotation = async (req, res) => {
     const itemInsertData = items.map(item => [
       quotation_id,
       item.product_name,
+      item.product_category_id,
       item.product_description || '',
       item.quantity,
       item.unit_price,
     ]);
     await connection.query(
       `INSERT INTO quotation_items (
-            quotation_id, product_name, product_description,
+            quotation_id, product_name,product_category_id, product_description,
             quantity, unit_price
           ) VALUES ?`,
       [itemInsertData]
@@ -135,13 +136,15 @@ const updateQuotation = async (req, res) => {
           // Update existing item
           await connection.query(
             `UPDATE quotation_items SET 
-              product_name = ?, 
+              product_name = ?,
+              product_category_id = ?,
               product_description = ?, 
               quantity = ?, 
               unit_price = ?
              WHERE item_id = ? AND quotation_id = ?`,
             [
               item.product_name,
+              item.product_category_id,
               item.product_description || '',
               item.quantity,
               item.unit_price,
@@ -153,12 +156,13 @@ const updateQuotation = async (req, res) => {
           // Insert new item
           await connection.query(
             `INSERT INTO quotation_items (
-              quotation_id, product_name, product_description,
+              quotation_id, product_name,product_category_id, product_description,
               quantity, unit_price
-            ) VALUES (?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?,?)`,
             [
               quotation_id,
               item.product_name,
+              item.product_category_id,
               item.product_description || '',
               item.quantity,
               item.unit_price
