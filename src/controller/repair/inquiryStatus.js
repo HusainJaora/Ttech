@@ -22,13 +22,64 @@ const assignTechnician = async (req, res) => {
 
     } catch (error) {
         await connection.rollback();
-    console.error("Error assigning technician:", error);
-    res.status(500).json({ message: "Server error" });
+        console.error("Error assigning technician:", error);
+        res.status(500).json({ message: "Server error" });
 
-    }finally {
+    } finally {
         connection.release();
-      }
+    }
+}
+// technician will only update if status is in technicain assiganed stage
+const updateTechnician = async (req, res) => {
+    const { inquiry_id } = req.params;
+    const { technician_id } = req.body;
+    const { signup_id } = req.user;
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        //    check current status of inquiry 
+        const [inquiry] = await connection.query(`
+        SELECT status from inquires WHERE inquiry_id=? AND signup_id=?`, [inquiry_id, signup_id]);
+
+        if (inquiry.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: "Inquiry not found" })
+        }
+        if (inquiry[0].status !== "Technician Assigned") {
+            await connection.rollback();
+            return res.status(400).json({
+                message: "Technician can only be updated when inquiry status is 'Technician Assigned"
+            })
+
+        }
+
+        await connection.query(`
+        UPDATE inquires SET technician_id=? WHERE 
+        inquiry_id=? AND signup_id=?`, [technician_id, inquiry_id, signup_id]);
+
+        await connection.commit();
+
+        return res.status(200).json({
+            message: "Technicain updated Successfully",
+            inquiry_id,
+            technician_id,
+
+        })
+
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error updating technician:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }finally{
+        connection.release();
+    }
 }
 
 
-module.exports ={assignTechnician}
+
+  
+
+module.exports = { assignTechnician, updateTechnician}
