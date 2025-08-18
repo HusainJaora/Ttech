@@ -146,7 +146,7 @@ const cancelInquiry = async (req, res) => {
     } finally {
       connection.release();
     }
-  };
+};
   
 
 module.exports = { assignTechnician, updateTechnician, markInquiryDone, cancelInquiry}

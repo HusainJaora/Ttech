@@ -3,7 +3,8 @@ const cors = require("cors");
 require("dotenv").config();
 const userAuth = require("./routes/userAuthRoutes.js");
 const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
-const addquotationRoute = require("./routes/quotationRoute.js");
+const addquotationRoute = require("./routes/quotation/quotationRoute.js");
+const quotationStatus = require("./routes/quotation/quotationStatusRoute.js");
 const masterEditingRoute = require("./routes/Master/editmasterRouter.js");
 const masterDeletingRoute = require("./routes/Master/deletemasterRoute.js");
 const repairInquiryRoute = require("./routes/repair/inquiryRoute.js");
@@ -22,6 +23,7 @@ app.get("/", (req, res) => {
 app.use("/auth",userAuth);
 app.use("/master-add",masterAddingRoute);
 app.use("/quotation",addquotationRoute);
+app.use("/quotation-status",quotationStatus);
 app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
 app.use("/repair-inquiry",repairInquiryRoute);
