@@ -1,4 +1,5 @@
 const express = require("express");
+const helmet = require('helmet');
 const cors = require("cors");
 require("dotenv").config();
 const userAuth = require("./routes/userAuthRoutes.js");
@@ -13,6 +14,7 @@ const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
 const customer = require("./routes/customerRoute.js");
 
 const app = express();
+app.use(helmet());
 app.use(express.json());
 app.use(cors());
 

@@ -23,39 +23,86 @@ const signup = async (req, res) => {
     }
 };
 
+// const login = async (req, res) => {
+//     const { username, password } = req.body;
+//     try {
+//         const [existing] = await db.query(
+//             "SELECT * FROM signup WHERE username=? ",
+//             [username.trim()]
+//         );
+
+//         const user = existing[0];
+//         if (!user) {
+//             return res.status(401).json({ error: "Invalid username or password" });
+//         }
+//         const isPassEqual = await bcrypt.compare(password, user.password);
+//         if (!isPassEqual) {
+//             return res.status(401).json({ error: "Invalid username or password" });
+//         }
+//         const jwtToken = jwt.sign(
+//             { signup_id: user.signup_id},
+//             process.env.JWT_SECRET,
+//             { expiresIn: '24h' }
+//         )
+
+//         res.status(201).json({
+//             message: "User login successfully",
+//             jwtToken,
+//             username: user.username
+//         });
+
+//     } catch (error) {
+//         res.status(500).json({ error: error.message });
+
+//     }
+// }
+
 const login = async (req, res) => {
-    const { username, password } = req.body;
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+    }
+
     try {
+        // Fetch user by email
         const [existing] = await db.query(
-            "SELECT * FROM signup WHERE username=? ",
-            [username.trim()]
+            "SELECT * FROM signup WHERE email = ?",
+            [email.trim().toLowerCase()]
         );
 
         const user = existing[0];
         if (!user) {
-            return res.status(409).json({ error: "User Does not exists with this email or username" });
+            // Avoid revealing which field is wrong
+            return res.status(401).json({ error: "Invalid email or password" });
         }
+
+        // Compare hashed password
         const isPassEqual = await bcrypt.compare(password, user.password);
         if (!isPassEqual) {
-            return res.status(409).json({ error: "User Does not exists with this username or wrong password" });
+            return res.status(401).json({ error: "Invalid email or password" });
         }
+
+        // Generate JWT token
         const jwtToken = jwt.sign(
-            { signup_id: user.signup_id, username: user.password },
+            { signup_id: user.signup_id },
             process.env.JWT_SECRET,
             { expiresIn: '24h' }
-        )
+        );
 
-        res.status(201).json({
-            message: "User login successfully",
+        res.status(200).json({
+            message: "User logged in successfully",
             jwtToken,
-            username: user.username
+            username: user.username,
+            shop_name: user.shop_name
         });
 
     } catch (error) {
-        res.status(500).json({ error: error.message });
-
+        console.error(error); // log internal error
+        res.status(500).json({ error: "Internal Server Error" });
     }
 }
+
 
 module.exports = {
     signup,

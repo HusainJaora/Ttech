@@ -1,21 +1,38 @@
 const joi = require("joi");
 const db = require("../db/database");
 
-const validateDuplicateUser=async(req,res,next)=>{
-    const {username, email} = req.body
-    try {
-        const [existing] = await db.query(
-            "SELECT * FROM signup WHERE email =? OR username=?",[email.trim(),username.trim()] 
-        );
-        if(existing.length >0){
-            return res.status(409).json({error:"User already exists with same email or username"});
-        }
-        next();
+// const validateDuplicateUser=async(req,res,next)=>{
+//     const {username, email} = req.body
+//     try {
+//         const [existing] = await db.query(
+//             "SELECT * FROM signup WHERE email =? OR username=?",[email.trim(),username.trim()] 
+//         );
+//         if(existing.length >0){
+//             return res.status(409).json({error:"User already exists with same email or username"});
+//         }
+//         next();
 
-    } catch (error) {
-        res.status(500).json({error:error.message});
+//     } catch (error) {
+//         res.status(500).json({error:error.message});
         
-    }
+//     }
+// }
+
+const validateDuplicateUser = async (req, res, next) => {
+  const { email } = req.body;
+  try {
+      const [existing] = await db.query(
+          "SELECT * FROM signup WHERE email = ?",
+          [email.trim().toLowerCase()]
+      );
+      if (existing.length > 0) {
+          return res.status(409).json({ error: "Email already exists" });
+      }
+      next();
+  } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal Server Error" });
+  }
 }
 
 const signupValidation = async (req, res, next) => {
@@ -81,26 +98,50 @@ const signupValidation = async (req, res, next) => {
   next();
 };
 
-  const validateLogin = async (req, res, next) => {
-    const tableFeild = joi.object({
-      username: joi.string().trim().required().messages({
-        "any.required": "Username is required",
-        "string.empty": "Username cannot be empty",
-      }),
-      password: joi.string().trim().required().messages({
-        "any.required": "Password is required",
-        "string.empty": "Password cannot be empty",
-      }),
-    });
+  // const validateLogin = async (req, res, next) => {
+  //   const tableFeild = joi.object({
+  //     username: joi.string().trim().required().messages({
+  //       "any.required": "Username is required",
+  //       "string.empty": "Username cannot be empty",
+  //     }),
+  //     password: joi.string().trim().required().messages({
+  //       "any.required": "Password is required",
+  //       "string.empty": "Password cannot be empty",
+  //     }),
+  //   });
   
-    const { error } = tableFeild.validate(req.body);
+  //   const { error } = tableFeild.validate(req.body);
   
-    if (error) {
-      return res.status(400).json({ error: error.details[0].message });
-    }
+  //   if (error) {
+  //     return res.status(400).json({ error: error.details[0].message });
+  //   }
   
-    next();
-  };
+  //   next();
+  // };
+
+const validateLogin = async (req, res, next) => {
+  // Validation schema
+  const schema = joi.object({
+    email: joi.string().trim().email().required().messages({
+      "any.required": "Email is required",
+      "string.empty": "Email cannot be empty",
+      "string.email": "Email must be a valid email address",
+    }),
+    password: joi.string().trim().required().messages({
+      "any.required": "Password is required",
+      "string.empty": "Password cannot be empty",
+    }),
+  });
+
+  const { error } = schema.validate(req.body);
+
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
+  }
+
+  next();
+};
+
 
 module.exports ={
     validateDuplicateUser,

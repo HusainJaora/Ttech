@@ -5,13 +5,14 @@ const { createCustomer } = require("../../utils/getOrCreateCustomer");
 
 const addQuotation = async (req, res) => {
   const {
-      customer_name,
-      customer_contact,
-      customer_email = "NA",
-      customer_address = "NA",
+    customer_name,
+    customer_contact,
+    customer_email = "NA",
+    customer_address = "NA",
+    inquiry_id,// optional, only for Repair quotations
     notes,
     items,
-     // optional, only for Repair quotations
+
   } = req.body;
 
   const { signup_id } = req.user;
@@ -79,10 +80,10 @@ const addQuotation = async (req, res) => {
     );
     const nextSerial = (latest[0].max_serial || 0) + 1;
 
-    
+
     const prefix = quotation_type === "Repair" ? "RQ" : "Q";
     const quotation_no = `${prefix}${String(nextSerial).padStart(3, "0")}/${month}/${year}`;
-    
+
 
     // 🔹 Calculate total
     const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
@@ -166,8 +167,8 @@ const updateQuotation = async (req, res) => {
     // Only allow update when Draft, Sent, or Rejected
     if (!["Draft", "Rejected"].includes(currentStatus)) {
       await connection.rollback();
-      return res.status(400).json({ 
-        error: `Quotation cannot be updated in '${currentStatus}' status` 
+      return res.status(400).json({
+        error: `Quotation cannot be updated in '${currentStatus}' status`
       });
     }
 
