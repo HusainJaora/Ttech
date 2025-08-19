@@ -23,39 +23,6 @@ const signup = async (req, res) => {
     }
 };
 
-// const login = async (req, res) => {
-//     const { username, password } = req.body;
-//     try {
-//         const [existing] = await db.query(
-//             "SELECT * FROM signup WHERE username=? ",
-//             [username.trim()]
-//         );
-
-//         const user = existing[0];
-//         if (!user) {
-//             return res.status(401).json({ error: "Invalid username or password" });
-//         }
-//         const isPassEqual = await bcrypt.compare(password, user.password);
-//         if (!isPassEqual) {
-//             return res.status(401).json({ error: "Invalid username or password" });
-//         }
-//         const jwtToken = jwt.sign(
-//             { signup_id: user.signup_id},
-//             process.env.JWT_SECRET,
-//             { expiresIn: '24h' }
-//         )
-
-//         res.status(201).json({
-//             message: "User login successfully",
-//             jwtToken,
-//             username: user.username
-//         });
-
-//     } catch (error) {
-//         res.status(500).json({ error: error.message });
-
-//     }
-// }
 
 const login = async (req, res) => {
     const { email, password } = req.body;
