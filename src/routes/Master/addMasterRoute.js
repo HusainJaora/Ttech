@@ -6,7 +6,7 @@ const validateToken = require("../../middleware/authToken");
 const {validateDuplicateSupplier,supplierValidation,validateDuplicateTechnician,validateTechnician,validateDuplicateProductCategory,
     validateProductCategory} = require("../../middleware/mastervalidation");
 // Supplier
-router.post("/add-supplier",validateToken,validateDuplicateSupplier,supplierValidation,addSupplier);
+router.post("/supplier",validateToken,validateDuplicateSupplier,supplierValidation,addSupplier);
 // Technician
 router.post("/add-technician",validateToken,validateDuplicateTechnician,validateTechnician,addTechnician);
 // Category

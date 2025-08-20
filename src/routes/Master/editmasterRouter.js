@@ -6,7 +6,7 @@ const {supplierValidation,validateTechnician,validateDuplicateProductCategory,va
 const {validateDuplicateTechnicianEdit,validateDuplicateSupplierEdit} = require("../../middleware/masterEditvalidation");
 
 // Supplier
-router.put("/edit-supplier/:supplier_id",validateToken,supplierValidation,validateDuplicateSupplierEdit,updateSupplier);
+router.put("/supplier/:supplier_id",validateToken,supplierValidation,validateDuplicateSupplierEdit,updateSupplier);
 // Technician
 router.put("/edit-technician/:technician_id",validateToken,validateDuplicateTechnicianEdit,validateTechnician,updateTechnician);
 // Product category
