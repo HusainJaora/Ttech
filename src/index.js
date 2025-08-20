@@ -12,6 +12,7 @@ const repairInquiryRoute = require("./routes/repair/inquiryRoute.js");
 const repairInquiryStatusRoute = require("./routes/repair/inquiryStatusRoute.js")
 const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
 const customer = require("./routes/customerRoute.js");
+const refreshToken = require("./routes/refreshTokenRouter.js");
 
 const app = express();
 app.use(helmet());
@@ -23,6 +24,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/auth",userAuth);
+app.use("/refresh",refreshToken)
 app.use("/master-add",masterAddingRoute);
 app.use("/quotation",addquotationRoute);
 app.use("/quotation-status",quotationStatus);

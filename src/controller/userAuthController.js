@@ -1,6 +1,7 @@
 const db = require("../db/database");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const { generateRefreshToken, hashtoken } = require("../utils/tokenutils");
 
 const signup = async (req, res) => {
     const { username, email, password, shop_name } = req.body;
@@ -8,9 +9,9 @@ const signup = async (req, res) => {
     try {
         const hashpassword = await bcrypt.hash(password, 10);
 
-        await db.query(
+         await db.query(
             "INSERT INTO signup (username, shop_name, email, password) VALUES (?, ?, ?, ?)",
-            [username.trim(), shop_name.trim(), email.trim().toLowerCase(), hashpassword ]
+            [username.trim(), shop_name.trim(), email.trim().toLowerCase(), hashpassword]
         );
 
         res.status(200).json({ message: "User registered successfully" });
@@ -22,7 +23,6 @@ const signup = async (req, res) => {
         }
     }
 };
-
 
 const login = async (req, res) => {
     const { email, password } = req.body;
@@ -50,19 +50,32 @@ const login = async (req, res) => {
             return res.status(401).json({ error: "Invalid email or password" });
         }
 
-        // Generate JWT token
-        const jwtToken = jwt.sign(
+        // create short lived access token
+
+        const accessToken = jwt.sign(
             { signup_id: user.signup_id },
             process.env.JWT_SECRET,
-            { expiresIn: '24h' }
-        );
+            { expiresIn: "15m" }
+        )
 
-        res.status(200).json({
-            message: "User logged in successfully",
-            jwtToken,
-            username: user.username,
-            shop_name: user.shop_name
-        });
+        //  generate new refresh token
+        const refreshToken = generateRefreshToken();
+        const tokenHash = hashtoken(refreshToken);
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+        // store hashed token in db
+        await db.query(`
+            INSERT INTO refresh_token(signup_id,token_hash,expires_at) VALUES(?,?,?)`,
+            [user.signup_id, tokenHash, expiresAt])
+
+
+        res.status(200).json(
+            {   message:"Logged in successfully",
+                accessToken,
+                refreshToken,
+                username: user.username,
+                shop_name: user.shop_name
+            });
 
     } catch (error) {
         console.error(error); // log internal error

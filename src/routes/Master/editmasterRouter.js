@@ -2,11 +2,11 @@ const express = require("express");
 const router = express.Router();
 const validateToken = require("../../middleware/authToken");
 const {updateSupplier,updateTechnician,updateProductCategories} = require("../../controller/Master/editMasterController");
-const {validateDuplicateSupplier,validateTechnician,validateDuplicateProductCategory,validateProductCategory} = require("../../middleware/mastervalidation");
-const {validateDuplicateTechnicianEdit} = require("../../middleware/masterEditvalidation");
+const {supplierValidation,validateTechnician,validateDuplicateProductCategory,validateProductCategory} = require("../../middleware/mastervalidation");
+const {validateDuplicateTechnicianEdit,validateDuplicateSupplierEdit} = require("../../middleware/masterEditvalidation");
 
 // Supplier
-router.put("/edit-supplier/:supplier_id",validateToken,validateDuplicateSupplier,updateSupplier);
+router.put("/edit-supplier/:supplier_id",validateToken,supplierValidation,validateDuplicateSupplierEdit,updateSupplier);
 // Technician
 router.put("/edit-technician/:technician_id",validateToken,validateDuplicateTechnicianEdit,validateTechnician,updateTechnician);
 // Product category
