@@ -9,7 +9,9 @@ const quotationStatus = require("./routes/quotation/quotationStatusRoute.js");
 const masterEditingRoute = require("./routes/Master/editmasterRouter.js");
 const masterDeletingRoute = require("./routes/Master/deletemasterRoute.js");
 const repairInquiryRoute = require("./routes/repair/inquiryRoute.js");
-const repairInquiryStatusRoute = require("./routes/repair/inquiryStatusRoute.js")
+const repairInquiryStatusRoute = require("./routes/repair/inquiryStatusRoute.js");
+const repairRoute = require("./routes/repair/repairRoute.js");
+const repairStatusRoute = require("./routes/repair/repairStatusRoute.js");
 const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
 const customer = require("./routes/customerRoute.js");
 const refreshToken = require("./routes/refreshTokenRouter.js");
@@ -32,7 +34,9 @@ app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
 app.use("/repair-inquiry",repairInquiryRoute);
 app.use("/repair-inquiry-status",repairInquiryStatusRoute);
-app.use("/check-customer",checkExistingCustomer)
+app.use("/repairs",repairRoute);
+app.use("/repair-status",repairStatusRoute);
+app.use("/check-customer",checkExistingCustomer);
 app.use("/customer",customer);
 
 const PORT = process.env.PORT || 5000;

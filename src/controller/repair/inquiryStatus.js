@@ -111,7 +111,7 @@ const markInquiryDone = async (req, res) => {
     } finally {
       connection.release();
     }
-};
+};  
 // Inquiry  will only update to mark if status is in technicain assiganed or pending stage
 const cancelInquiry = async (req, res) => {
     const { inquiry_id } = req.params;
