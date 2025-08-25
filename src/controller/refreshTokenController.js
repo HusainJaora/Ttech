@@ -29,7 +29,7 @@ const refreshAccessToken = async (req, res) => {
 
         // Generate new access token
         const payload = { signup_id: storedToken.signup_id };
-        const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "2m" });
+        const newAccessToken = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "15m" });
 
         return res.json({ accessToken: newAccessToken });
 

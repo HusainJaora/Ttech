@@ -1,45 +1,98 @@
 const db = require("../../db/database");
 
+
 const quotationStatus = async (req, res) => {
     const { quotation_id } = req.params;
     const { new_status } = req.body;
     const { signup_id } = req.user;
 
     const connection = await db.getConnection();
+
     try {
         await connection.beginTransaction();
 
-        // 1. Fetch current status
-        const [rows] = await connection.query(
-            `SELECT status FROM quotation WHERE quotation_id = ? AND signup_id = ?`,
+        // 🔒 Lock the quotation row
+        const [quotationRows] = await connection.query(
+            `SELECT * FROM quotation 
+             WHERE quotation_id = ? AND signup_id = ? 
+             FOR UPDATE`,
             [quotation_id, signup_id]
         );
 
-        if (!rows.length) {
+        if (!quotationRows.length) {
             return res.status(404).json({ message: "Quotation not found." });
         }
 
-        const currentStatus = rows[0].status;
+        const quotation = quotationRows[0];
+        const currentStatus = quotation.status;
 
-        // 2. Define allowed transitions
+        // ✅ Get customer + inquiry info (no FOR UPDATE here)
+        const [extraRows] = await connection.query(
+            `SELECT c.customer_name, i.technician_id
+             FROM quotation q
+             LEFT JOIN customers c 
+                    ON q.customer_id = c.customer_id AND q.signup_id = c.signup_id
+             LEFT JOIN inquires i 
+                    ON q.inquiry_id = i.inquiry_id AND q.signup_id = i.signup_id
+             WHERE q.quotation_id = ? AND q.signup_id = ?`,
+            [quotation_id, signup_id]
+        );
+
+        if (extraRows.length) {
+            quotation.customer_name = extraRows[0].customer_name;
+            quotation.technician_id = extraRows[0].technician_id;
+        }
+
+        //  Allowed transitions
         const allowedTransitions = {
-            Draft: ["Sent","Cancelled"],
+            Draft: ["Sent", "Cancelled"],
             Sent: ["Accepted", "Rejected", "Cancelled"],
             Rejected: ["Sent", "Cancelled"]
-            // Accepted and Cancelled have no further transitions
         };
 
         const validNextStatuses = allowedTransitions[currentStatus] || [];
         if (!validNextStatuses.includes(new_status)) {
-            return res.status(400).json({ 
+            return res.status(400).json({
                 message: `Cannot change status from ${currentStatus} to ${new_status}.`
             });
         }
 
-        // 3. Update status
+        // 🔧 Create repair if needed
+        if (new_status === "Accepted" && quotation.quotation_type === "Repair") {
+            const now = new Date();
+            const month = now.toLocaleString("default", { month: "short" }).toUpperCase();
+            const year = now.getFullYear().toString().slice(-2);
+
+            const [latest] = await connection.query(
+                "SELECT MAX(repair_serial) AS max_serial FROM repairs WHERE signup_id = ?",
+                [signup_id]
+            );
+
+            const nextSerial = (latest[0].max_serial || 0) + 1;
+            const repair_no = `R${String(nextSerial).padStart(3, "0")}/${month}/${year}`;
+
+            await connection.query(
+                `INSERT INTO repairs
+                 (signup_id, repair_serial, repair_no, quotation_id, inquiry_id, customer_id, technician_id, repair_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')`,
+                [
+                    signup_id,
+                    nextSerial,
+                    repair_no,
+                    quotation.quotation_id,
+                    quotation.inquiry_id,
+                    quotation.customer_id,
+                    quotation.technician_id
+                ]
+            );
+        }
+
+        // 📝 Update quotation status
         await connection.query(
-            `UPDATE quotation SET status = ? WHERE quotation_id = ?`,
-            [new_status, quotation_id]
+            `UPDATE quotation 
+             SET status = ? 
+             WHERE quotation_id = ? AND signup_id = ?`,
+            [new_status, quotation_id, signup_id]
         );
 
         await connection.commit();
@@ -55,4 +108,9 @@ const quotationStatus = async (req, res) => {
 };
 
 
-module.exports = {quotationStatus}
+
+
+
+
+
+module.exports = { quotationStatus }
