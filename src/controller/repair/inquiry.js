@@ -1,5 +1,5 @@
 const db = require("../../db/database");
-const {  createCustomer } = require("../../utils/getOrCreateCustomer");
+const { createCustomer } = require("../../utils/getOrCreateCustomer");
 
 
 const addInquiry = async (req, res) => {
@@ -202,35 +202,216 @@ const deleteInquiry = async (req, res) => {
     const { signup_id } = req.user;
     const connection = await db.getConnection();
     try {
-      await connection.beginTransaction();
-  
-      const [inquiry] = await connection.query(`
+        await connection.beginTransaction();
+
+        const [inquiry] = await connection.query(`
         SELECT * FROM inquires WHERE inquiry_id=? AND signup_id=?`, [inquiry_id, signup_id]);
-  
-      if (inquiry.length === 0) {
-        return res.status(404).json({ error: "Inquiry not found or unauthorized" });
-      }
-      await connection.query(`
+
+        if (inquiry.length === 0) {
+            return res.status(404).json({ error: "Inquiry not found or unauthorized" });
+        }
+        await connection.query(`
         DELETE FROM inquiry_items WHERE inquiry_id=?`, [inquiry_id]);
-  
-      await connection.query(`
+
+        await connection.query(`
         DELETE FROM inquires WHERE inquiry_id=? AND signup_id=?`, [inquiry_id, signup_id]);
-  
-      await connection.commit();
-  
-      res.status(200).json({ message: "Inquiry and its items deleted successfully", inquiry_id })
-  
+
+        await connection.commit();
+
+        res.status(200).json({ message: "Inquiry and its items deleted successfully", inquiry_id })
+
     } catch (error) {
-      await connection.rollback();
-      console.log(error)
-      res.status(500).json({ error: "Internal Server Error" });
-  
+        await connection.rollback();
+        console.log(error)
+        res.status(500).json({ error: "Internal Server Error" });
+
     }
     finally {
-      connection.release();
-  
+        connection.release();
+
     }
 }
 
+const getSingleInquiry = async (req, res) => {
+    const { inquiry_id } = req.params;
+    const { signup_id } = req.user;
 
-module.exports = { addInquiry,updateInquiry, deleteInquiry }
+    try {
+        // 1. Fetch inquiry + customer + technician
+        const [inquiryRows] = await db.query(`
+            SELECT i.inquiry_id, i.inquiry_no, i.status, i.notes, i.created_date, i.created_time,
+                   c.customer_id, c.customer_name, c.customer_contact, c.customer_email,
+                   t.technician_id, t.technician_name, t.technician_phone
+            FROM inquires i
+            JOIN customers c ON i.customer_id = c.customer_id
+            LEFT JOIN technicians t ON i.technician_id = t.technician_id
+            WHERE i.signup_id = ? AND i.inquiry_id = ?
+        `, [signup_id, inquiry_id]);
+
+        if (inquiryRows.length === 0) {
+            return res.status(404).json({ error: "Inquiry not found" });
+        }
+
+        const inquiry = inquiryRows[0];
+
+        // Handle unassigned technician
+        inquiry.technician_name = inquiry.technician_name || "Not Assigned";
+        inquiry.technician_phone = inquiry.technician_phone || "NA";
+
+        // 2. Fetch inquiry items
+        const [items] = await db.query(`
+            SELECT item_id, product_name, problem_description, accessories_given
+            FROM inquiry_items
+            WHERE inquiry_id = ?
+        `, [inquiry_id]);
+        inquiry.products = items;
+
+        // 3. Fetch quotation (and its items)
+        const [quotationRows] = await db.query(`
+            SELECT q.quotation_id, q.quotation_no, q.status, q.total_amount,
+                   q.quotation_date, q.quotation_time
+            FROM quotation q
+            WHERE q.signup_id = ? AND q.inquiry_id = ?
+        `, [signup_id, inquiry_id]);
+
+        if (quotationRows.length > 0) {
+            const quotation = quotationRows[0];
+
+            const [quotationItems] = await db.query(`
+                SELECT item_id, product_name, product_description, quantity, unit_price, total_price, warranty
+                FROM quotation_items
+                WHERE quotation_id = ?
+            `, [quotation.quotation_id]);
+
+            quotation.items = quotationItems;
+            inquiry.quotation = quotation;
+        } else {
+            inquiry.quotation = null;
+        }
+
+        // 4. Fetch repair (if exists)
+        const [repairRows] = await db.query(`
+            SELECT r.repair_id, r.repair_no, r.repair_status,
+                   r.created_date AS repair_date, r.created_time AS repair_time
+            FROM repairs r
+            WHERE r.signup_id = ? AND r.inquiry_id = ?
+        `, [signup_id, inquiry_id]);
+
+        inquiry.repair = repairRows.length > 0 ? repairRows[0] : null;
+
+        res.status(200).json({ data: inquiry });
+
+    } catch (error) {
+        console.error("Error fetching inquiry detail:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+const getAllInquiries = async (req, res) => {
+    const { signup_id } = req.user;
+
+    try {
+        // 1. Fetch all inquiries with customer + technician
+        const [inquiries] = await db.query(`
+            SELECT i.inquiry_id, i.inquiry_no, i.status, i.notes, i.created_date, i.created_time,
+                   c.customer_id, c.customer_name, c.customer_contact, c.customer_email,
+                   t.technician_id, t.technician_name, t.technician_phone
+            FROM inquires i
+            JOIN customers c ON i.customer_id = c.customer_id
+            LEFT JOIN technicians t ON i.technician_id = t.technician_id
+            WHERE i.signup_id = ?
+            ORDER BY i.inquiry_id DESC
+        `, [signup_id]);
+
+        if (inquiries.length === 0) {
+            return res.status(200).json({ message: "No inquiries found." });
+        }
+
+        const inquiryIds = inquiries.map(i => i.inquiry_id);
+
+        // 2. Fetch all inquiry items in bulk
+        const [items] = await db.query(`
+            SELECT inquiry_id, item_id, product_name, problem_description, accessories_given
+            FROM inquiry_items
+            WHERE inquiry_id IN (?)
+        `, [inquiryIds]);
+
+        // 3. Fetch all quotations in bulk
+        const [quotations] = await db.query(`
+            SELECT q.quotation_id, q.inquiry_id, q.quotation_no, q.status, q.total_amount,
+                   q.quotation_date, q.quotation_time
+            FROM quotation q
+            WHERE q.signup_id = ? AND q.inquiry_id IN (?)
+        `, [signup_id, inquiryIds]);
+
+        const quotationIds = quotations.map(q => q.quotation_id);
+
+        // 3a. Fetch all quotation items in bulk
+        let quotationItems = [];
+        if (quotationIds.length > 0) {
+            [quotationItems] = await db.query(`
+                SELECT quotation_id, item_id, product_name, product_description, quantity, unit_price, total_price, warranty
+                FROM quotation_items
+                WHERE quotation_id IN (?)
+            `, [quotationIds]);
+        }
+
+        // 4. Fetch all repairs in bulk
+        const [repairs] = await db.query(`
+            SELECT r.repair_id, r.inquiry_id, r.repair_no, r.repair_status,
+                   r.created_date AS repair_date, r.created_time AS repair_time
+            FROM repairs r
+            WHERE r.signup_id = ? AND r.inquiry_id IN (?)
+        `, [signup_id, inquiryIds]);
+
+        // ==== Group data ====
+
+        // group inquiry items
+        const itemsByInquiry = {};
+        items.forEach(it => {
+            if (!itemsByInquiry[it.inquiry_id]) itemsByInquiry[it.inquiry_id] = [];
+            itemsByInquiry[it.inquiry_id].push(it);
+        });
+
+        // group quotation items
+        const quotationItemsByQuotation = {};
+        quotationItems.forEach(it => {
+            if (!quotationItemsByQuotation[it.quotation_id]) quotationItemsByQuotation[it.quotation_id] = [];
+            quotationItemsByQuotation[it.quotation_id].push(it);
+        });
+
+        // group quotations
+        const quotationsByInquiry = {};
+        quotations.forEach(q => {
+            q.items = quotationItemsByQuotation[q.quotation_id] || [];
+            quotationsByInquiry[q.inquiry_id] = q;
+        });
+
+        // group repairs
+        const repairsByInquiry = {};
+        repairs.forEach(r => {
+            repairsByInquiry[r.inquiry_id] = r;
+        });
+
+        // Final assembly
+        const result = inquiries.map(inquiry => {
+            return {
+                ...inquiry,
+                technician_name: inquiry.technician_name || "Not Assigned",
+                technician_phone: inquiry.technician_phone || "NA",
+                products: itemsByInquiry[inquiry.inquiry_id] || [],
+                quotation: quotationsByInquiry[inquiry.inquiry_id] || null,
+                repair: repairsByInquiry[inquiry.inquiry_id] || null
+            };
+        });
+
+        res.status(200).json({ data: result });
+
+    } catch (error) {
+        console.error("Error fetching inquiries:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+};
+
+
+module.exports = { addInquiry, updateInquiry, deleteInquiry,getSingleInquiry, getAllInquiries}
