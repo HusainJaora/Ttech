@@ -114,13 +114,14 @@ const addQuotation = async (req, res) => {
       item.product_name,
       item.product_category_id,
       item.product_description || '',
+      item.warranty,
       item.quantity,
       item.unit_price,
     ]);
 
     await connection.query(
       `INSERT INTO quotation_items (
-        quotation_id, product_name, product_category_id, product_description,
+        quotation_id, product_name, product_category_id, product_description,warranty,
         quantity, unit_price
       ) VALUES ?`,
       [itemInsertData]
@@ -193,12 +194,13 @@ const updateQuotation = async (req, res) => {
           // Update existing item
           await connection.query(
             `UPDATE quotation_items 
-             SET product_name = ?, product_category_id = ?, product_description = ?, quantity = ?, unit_price = ? 
+             SET product_name = ?, product_category_id = ?, product_description = ?, warranty=?, quantity = ?, unit_price = ? 
              WHERE quotation_item_id = ? AND quotation_id = ?`,
             [
               item.product_name,
               item.product_category_id || null,
               item.product_description || null,
+              item.warranty,
               item.quantity,
               item.unit_price,
               item.item_id,
@@ -209,13 +211,14 @@ const updateQuotation = async (req, res) => {
           // Insert new item
           await connection.query(
             `INSERT INTO quotation_items 
-             (quotation_id, product_name, product_category_id, product_description, quantity, unit_price) 
-             VALUES (?, ?, ?, ?, ?, ?)`,
+             (quotation_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               quotation_id,
               item.product_name,
               item.product_category_id || null,
               item.product_description || null,
+              item.warranty,
               item.quantity,
               item.unit_price
             ]

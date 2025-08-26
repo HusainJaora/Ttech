@@ -83,6 +83,11 @@ const addQuotationValidation = async (req, res, next) => {
                     product_description: joi.string().trim().optional().allow("").messages({
                         "string.base": "product description must be string"
                     }),
+                    warranty: joi.string().trim().required().messages({
+                        "string.base": "warranty must be string",
+                        "string.empty": "warranty is required",
+                        "any.required": "warranty is required"
+                    }),
                     quantity: joi.number().integer().min(1).required().messages({
                         "number.base": "quantity must be a number",
                         "number.integer": "quantity must be an integer",
@@ -166,6 +171,12 @@ const updateQuotationValidation = async (req, res, next) => {
                         .messages({
                             "string.base": "product description must be string"
                         }),
+
+                    warranty: joi.string().trim().required().messages({
+                        "string.base": "warranty must be string",
+                        "string.empty": "warranty is required",
+                        "any.required": "warranty is required"
+                    }),
 
                     quantity: joi.number()
                         .integer()

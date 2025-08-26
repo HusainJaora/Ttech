@@ -37,7 +37,7 @@ const getSingleRepair = async (req, res) => {
 
         // 2. Fetch inquiry items (products + problems)
         const [inquiryItems] = await db.query(
-            `SELECT  product_name, problem_description, accessories_given
+            `SELECT  product_name, problem_description accessories_given
              FROM inquiry_items
              WHERE inquiry_id = ?`,
             [repair.inquiry_id]
@@ -45,7 +45,7 @@ const getSingleRepair = async (req, res) => {
 
         // 3. Fetch quotation items (products / parts used in repair)
         const [quotationItems] = await db.query(
-            `SELECT  product_name, product_description, quantity, unit_price, total_price
+            `SELECT  product_name, product_description, warranty, quantity, unit_price, total_price
              FROM quotation_items
              WHERE quotation_id = ?`,
             [repair.quotation_id]
