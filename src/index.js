@@ -17,6 +17,7 @@ const checkExistingCustomer = require("./utils/checkExistingCustomer.js");
 const customer = require("./routes/customerRoute.js");
 const refreshToken = require("./routes/refreshTokenRouter.js");
 const invoiceRoute = require("./routes/invoice/invoiceRoute.js");
+const paymentRoute = require("./routes/invoice/paymentRoute.js");
 
 const app = express();
 app.use(helmet());
@@ -29,20 +30,26 @@ app.get("/", (req, res) => {
 
 app.use("/auth",userAuth);
 app.use("/refresh",refreshToken)
-app.use("/master-add",masterAddingRoute);
+
 app.use("/quotation",addquotationRoute);
 app.use("/quotation-status",quotationStatus);
+
+app.use("/master-add",masterAddingRoute);
 app.use("/master-edit",masterEditingRoute);
 app.use("/master-delete",masterDeletingRoute);
 app.use("/master-view",masterGetRoute);
+
 app.use("/repair-inquiry",repairInquiryRoute);
 app.use("/repair-inquiry-status",repairInquiryStatusRoute);
 app.use("/repairs",repairRoute);
 app.use("/repair-status",repairStatusRoute);
+
 app.use("/check-customer",checkExistingCustomer);
 app.use("/customer",customer);
 
-app.use("/invoice",invoiceRoute)
+app.use("/invoice",invoiceRoute);
+app.use("/invoice-payment/",paymentRoute);
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, ()=> console.log(`Server is running on port ${PORT}`));
