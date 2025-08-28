@@ -85,6 +85,82 @@ const addPayment = async (req, res) => {
         connection.release();
     }
 }
+const deletePayment = async (req, res) => {
+    const { payment_id } = req.params; // assuming payment_id passed in URL
+    const { signup_id } = req.user;
+    const connection = await db.getConnection();
 
-module.exports = { addPayment };
+    try {
+        await connection.beginTransaction();
+
+        // 1. Get the payment
+        const [payments] = await connection.query(
+            `SELECT * FROM payments WHERE payment_id=?`,
+            [payment_id]
+        );
+
+        if (!payments.length) {
+            await connection.rollback();
+            return res.status(404).json({ error: "Payment not found" });
+        }
+
+        const payment = payments[0];
+
+        // 2. Get the invoice related to this payment
+        const [invoices] = await connection.query(
+            `SELECT * FROM invoices WHERE invoice_id=? AND signup_id=?`,
+            [payment.invoice_id, signup_id]
+        );
+
+        if (!invoices.length) {
+            await connection.rollback();
+            return res.status(404).json({ error: "Invoice not found or not accessible" });
+        }
+
+        const invoice = invoices[0];
+
+        // 3. Delete the payment
+        await connection.query(
+            `DELETE FROM payments WHERE payment_id=?`,
+            [payment_id]
+        );
+
+        // 4. Recalculate invoice totals
+        const new_amount_paid = parseFloat(invoice.amount_paid) - parseFloat(payment.amount);
+        const new_amount_due = parseFloat(invoice.grand_total) - new_amount_paid;
+
+        let new_status = "ISSUED"; // default back
+        if (new_amount_paid > 0 && new_amount_paid < invoice.grand_total) {
+            new_status = "PARTIALLY_PAID";
+        } else if (new_amount_paid >= invoice.grand_total) {
+            new_status = "PAID";
+        }
+
+        await connection.query(
+            `UPDATE invoices
+             SET amount_paid=?, amount_due=?, status=? 
+             WHERE invoice_id=?`,
+            [new_amount_paid, new_amount_due, new_status, invoice.invoice_id]
+        );
+
+        await connection.commit();
+
+        res.status(200).json({
+            message: "Payment deleted successfully",
+            payment_id,
+            invoice_id: invoice.invoice_id,
+            new_amount_paid,
+            new_amount_due,
+            status: new_status
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error("Error deleting payment:", error.message);
+        res.status(500).json({ error: "Internal server error" });
+    } finally {
+        connection.release();
+    }
+};
+
+module.exports = { addPayment, deletePayment };
 

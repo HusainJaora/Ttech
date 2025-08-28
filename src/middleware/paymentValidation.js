@@ -74,4 +74,29 @@ const addPaymentValidation = async (req, res, next) => {
     next();
 };
 
-module.exports = {addPaymentValidation};
+const deletePaymentValidation = async (req, res, next) => {
+    const schema = joi.object({
+        payment_id: joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                "number.base": "payment id must be a number",
+                "number.integer": "payment id must be an integer",
+                "number.positive": "payment id must be positive",
+                "any.required": "payment id is required"
+            })
+    });
+
+    const { error } = schema.validate(req.params);
+
+    if (error) {
+        return res.status(400).json({
+            error: error.details[0].message
+        });
+    }
+    next();
+};
+
+
+module.exports = {addPaymentValidation, deletePaymentValidation};
