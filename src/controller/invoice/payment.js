@@ -19,26 +19,37 @@ const addPayment = async (req, res) => {
 
         const invoice = invoices[0];
 
-        if (invoice.status == 'DRAFT') {
-            await connection.rollback();
-            return res.status(400).json({ error: "Cannot add payment because its in draft." });
 
+        const blockedStatuses = {
+            DRAFT: "Cannot add payment because invoice is in draft.",
+            CANCELLED: "Cannot add payment because invoice is cancelled.",
+            PAID: "Invoice is already paid in full."
+        };
+
+        if (blockedStatuses[invoice.status]) {
+            await connection.rollback();
+            return res.status(400).json({ error: blockedStatuses[invoice.status] });
         }
+
+        const now = new Date();
+        const istDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // 
+        const istTimeStr = now.toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Kolkata' }); 
+
 
         const [result] = await connection.query(`
             INSERT INTO payments (invoice_id, payment_date, payment_time, amount, payment_method, notes, reference_no) VALUES (?,?,?,?,?,?,?)
             `,
             [
                 invoice_id,
-                payment_date || new Date().toISOString().split("T")[0],
-                payment_time || new Date().toISOString().split("T")[1].slice(0, 8),
+                payment_date || istDateStr,
+                payment_time || istTimeStr,
                 amount,
                 payment_method,
                 notes || null,
                 reference_no || null,
             ]);
 
-        const new_amount_paid = parseFloat(invoice.new_amount_paid) + parseFloat(amount);
+        const new_amount_paid = parseFloat(invoice.amount_paid) + parseFloat(amount);
         const new_amount_due = parseFloat(invoice.grand_total) - new_amount_paid;
 
         if (new_amount_paid > invoice.grand_total) {
@@ -46,7 +57,8 @@ const addPayment = async (req, res) => {
             return res.status(400).json({ error: "Total paid cannot exceed invoice grand total." });
         }
 
-        let new_status = 'PARTIAL';
+
+        let new_status = 'PARTIALLY_PAID';
         if (new_amount_due <= 0) new_status = "PAID";
 
         await connection.query(`
@@ -69,10 +81,10 @@ const addPayment = async (req, res) => {
         await connection.rollback();
         console.error("Error adding payment:", error.message);
         res.status(500).json({ error: "Internal server error" });
-    }finally{
-         connection.release();
+    } finally {
+        connection.release();
     }
 }
 
-module.exports = {addPayment};
+module.exports = { addPayment };
 
