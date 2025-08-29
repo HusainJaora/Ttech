@@ -182,7 +182,7 @@ const updateQuotation = async (req, res) => {
     // 3. Handle deleted items
     if (deleted_item_ids?.length) {
       await connection.query(
-        `DELETE FROM quotation_items WHERE quotation_item_id IN (?) AND quotation_id = ?`,
+        `DELETE FROM quotation_items WHERE item_id IN (?) AND quotation_id = ?`,
         [deleted_item_ids, quotation_id]
       );
     }
@@ -194,8 +194,8 @@ const updateQuotation = async (req, res) => {
           // Update existing item
           await connection.query(
             `UPDATE quotation_items 
-             SET product_name = ?, product_category_id = ?, product_description = ?, warranty=?, quantity = ?, unit_price = ? 
-             WHERE quotation_item_id = ? AND quotation_id = ?`,
+              SET product_name = ?, product_category_id = ?, product_description = ?, warranty=?, quantity = ?, unit_price = ? 
+              WHERE item_id = ? AND quotation_id = ?`,
             [
               item.product_name,
               item.product_category_id || null,
@@ -207,12 +207,15 @@ const updateQuotation = async (req, res) => {
               quotation_id
             ]
           );
+
+
+
         } else {
           // Insert new item
           await connection.query(
             `INSERT INTO quotation_items 
-             (quotation_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              (quotation_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               quotation_id,
               item.product_name,
@@ -223,9 +226,19 @@ const updateQuotation = async (req, res) => {
               item.unit_price
             ]
           );
+
         }
+        const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
+        await connection.query(`
+              UPDATE quotation SET total_amount=? WHERE quotation_id=? AND signup_id=?
+              `, [
+          total_amount,
+          quotation_id,
+          signup_id])
+
       }
     }
+
 
     await connection.commit();
     res.status(200).json({ message: "Quotation updated successfully" });

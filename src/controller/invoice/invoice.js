@@ -229,6 +229,133 @@ const createInvoice = async (req, res) => {
   }
 };
 
+const updateInvoice = async (req, res) => {
+  const { invoice_id } = req.params;
+  const { signup_id } = req.user;
+  const {
+    invoice_date,
+    bill_to_name,
+    bill_to_address,
+    ship_to_name,
+    ship_to_address,
+    notes_public,
+    notes_internal,
+    deleted_item_ids,
+    items,
+  } = req.body;
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+    const [invoices] = await connection.query(`
+      SELECT * FROM invoices WHERE invoice_id=? AND signup_id=?
+      `, [invoice_id, signup_id]);
+
+    if (invoices.length === 0) {
+      return res.status(404).json({ message: "Invoice not found" })
+    }
+
+    const invoice = invoices[0];
+    const sourceType = invoice.source_type;
+
+    if (sourceType !== "DIRECT") {
+      await connection.rollback();
+      return res.status(400).json({ message: `Invoice cannot be edited when source is ${sourceType}` });
+    }
+
+    const currentStatus = invoice.status
+    if (currentStatus !== "DRAFT") {
+      await connection.rollback();
+      return res.status(403).json({ message: `Invoice cannot be edited in ${currentStatus}` })
+    }
+
+    await connection.query(`
+      UPDATE invoices SET invoice_date=?, bill_to_name=?, bill_to_address=?, ship_to_name=?,ship_to_address=?,notes_public=?, notes_internal=? WHERE invoice_id=? AND signup_id=?
+      `, [
+      invoice_date,
+      bill_to_name,
+      bill_to_address,
+      ship_to_name || 'NA',
+      ship_to_address || 'NA',
+      notes_public || 'NA',
+      notes_internal || 'NA',
+      invoice_id,
+      signup_id
+    ])
+
+    if (deleted_item_ids?.length) {
+      await connection.query(
+        `DELETE FROM invoice_items WHERE invoice_item_id IN (?) AND invoice_id = ?`,
+        [deleted_item_ids, invoice_id]
+      );
+    }
+
+    if (items?.length) {
+      for (const item of items) {
+        if (item.invoice_item_id) {
+          await connection.query(`
+            UPDATE invoice_items 
+            SET product_name=?, product_category_id = ?,
+            product_description = ?, warranty=?, quantity = ?, unit_price = ?
+            WHERE invoice_item_id=? AND invoice_id=?
+            `,
+            [
+              item.product_name,
+              item.product_category_id,
+              item.product_description || "NA",
+              item.warranty,
+              item.quantity,
+              item.unit_price,
+              item.invoice_item_id,
+              invoice_id
+            ])
+        } else {
+          await connection.query(
+            `INSERT INTO invoice_items 
+             (invoice_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              invoice_id,
+              item.product_name,
+              item.product_category_id || null,
+              item.product_description || null,
+              item.warranty,
+              item.quantity,
+              item.unit_price
+            ]
+          );
+
+        }
+        const subtotal = items.reduce(
+          (sum, item) => sum + (item.quantity * item.unit_price),
+          0
+        );
+        const grand_total = subtotal;
+        const amount_paid = 0;
+        const amount_due = grand_total;
+
+        await connection.query(`
+          UPDATE invoices SET subtotal=?, grand_total=?, amount_paid=?, amount_due=? WHERE invoice_id=? AND signup_id=?
+          `, [subtotal, grand_total, amount_paid, amount_due, invoice_id, signup_id]);
+      }
+
+    }
+
+    await connection.commit();
+    res.status(200).json({message:"Invoice updated successfully"});
+
+  } catch (error) {
+    await connection.rollback();
+    console.error("Error updating quotation:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }finally{
+    connection.release();
+
+  }
 
 
-module.exports = { createInvoice };
+
+}
+
+
+module.exports = { createInvoice, updateInvoice };
