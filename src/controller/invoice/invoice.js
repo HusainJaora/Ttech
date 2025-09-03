@@ -243,16 +243,21 @@ const updateInvoice = async (req, res) => {
     deleted_item_ids,
     items,
   } = req.body;
+
   const connection = await db.getConnection();
 
   try {
     await connection.beginTransaction();
-    const [invoices] = await connection.query(`
-      SELECT * FROM invoices WHERE invoice_id=? AND signup_id=?
-      `, [invoice_id, signup_id]);
+
+    // 1. Get invoice
+    const [invoices] = await connection.query(
+      `SELECT * FROM invoices WHERE invoice_id=? AND signup_id=?`,
+      [invoice_id, signup_id]
+    );
 
     if (invoices.length === 0) {
-      return res.status(404).json({ message: "Invoice not found" })
+      await connection.rollback();
+      return res.status(404).json({ message: "Invoice not found" });
     }
 
     const invoice = invoices[0];
@@ -263,53 +268,63 @@ const updateInvoice = async (req, res) => {
       return res.status(400).json({ message: `Invoice cannot be edited when source is ${sourceType}` });
     }
 
-    const currentStatus = invoice.status
+    const currentStatus = invoice.status;
     if (currentStatus !== "DRAFT") {
       await connection.rollback();
-      return res.status(403).json({ message: `Invoice cannot be edited in ${currentStatus}` })
+      return res.status(403).json({ message: `Invoice cannot be edited in ${currentStatus}` });
     }
 
-    await connection.query(`
-      UPDATE invoices SET invoice_date=?, bill_to_name=?, bill_to_address=?, ship_to_name=?,ship_to_address=?,notes_public=?, notes_internal=? WHERE invoice_id=? AND signup_id=?
-      `, [
-      invoice_date,
-      bill_to_name,
-      bill_to_address,
-      ship_to_name || 'NA',
-      ship_to_address || 'NA',
-      notes_public || 'NA',
-      notes_internal || 'NA',
-      invoice_id,
-      signup_id
-    ])
+    // 2. Update main invoice fields
+    await connection.query(
+      `UPDATE invoices 
+       SET invoice_date=?, bill_to_name=?, bill_to_address=?, 
+           ship_to_name=?, ship_to_address=?, 
+           notes_public=?, notes_internal=? 
+       WHERE invoice_id=? AND signup_id=?`,
+      [
+        invoice_date,
+        bill_to_name,
+        bill_to_address,
+        ship_to_name || null,
+        ship_to_address || null,
+        notes_public || "NA",
+        notes_internal || "NA",
+        invoice_id,
+        signup_id
+      ]
+    );
 
+    // 3. Handle deleted items
     if (deleted_item_ids?.length) {
+      const placeholders = deleted_item_ids.map(() => "?").join(",");
       await connection.query(
-        `DELETE FROM invoice_items WHERE invoice_item_id IN (?) AND invoice_id = ?`,
-        [deleted_item_ids, invoice_id]
+        `DELETE FROM invoice_items WHERE invoice_item_id IN (${placeholders}) AND invoice_id=?`,
+        [...deleted_item_ids, invoice_id]
       );
     }
 
+    // 4. Handle updated/new items
     if (items?.length) {
       for (const item of items) {
         if (item.invoice_item_id) {
-          await connection.query(`
-            UPDATE invoice_items 
-            SET product_name=?, product_category_id = ?,
-            product_description = ?, warranty=?, quantity = ?, unit_price = ?
-            WHERE invoice_item_id=? AND invoice_id=?
-            `,
+          // Update existing item
+          await connection.query(
+            `UPDATE invoice_items 
+             SET product_name=?, product_category_id=?, product_description=?, warranty=?, quantity=?, unit_price=? 
+             WHERE invoice_item_id=? AND invoice_id=?`,
             [
               item.product_name,
-              item.product_category_id,
-              item.product_description || "NA",
-              item.warranty,
-              item.quantity,
-              item.unit_price,
+              item.product_category_id || null,
+              item.product_description || null,
+              item.warranty || "",
+              item.quantity || 0,
+              item.unit_price || 0,
               item.invoice_item_id,
               invoice_id
-            ])
+            ]
+          );
         } else {
+          // Insert new item
           await connection.query(
             `INSERT INTO invoice_items 
              (invoice_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
@@ -319,43 +334,47 @@ const updateInvoice = async (req, res) => {
               item.product_name,
               item.product_category_id || null,
               item.product_description || null,
-              item.warranty,
-              item.quantity,
-              item.unit_price
+              item.warranty || "",
+              item.quantity || 0,
+              item.unit_price || 0
             ]
           );
-
         }
-        const subtotal = items.reduce(
-          (sum, item) => sum + (item.quantity * item.unit_price),
-          0
-        );
-        const grand_total = subtotal;
-        const amount_paid = 0;
-        const amount_due = grand_total;
-
-        await connection.query(`
-          UPDATE invoices SET subtotal=?, grand_total=?, amount_paid=?, amount_due=? WHERE invoice_id=? AND signup_id=?
-          `, [subtotal, grand_total, amount_paid, amount_due, invoice_id, signup_id]);
       }
-
     }
 
+    // 5. Recalculate totals from DB
+    const [allItems] = await connection.query(
+      `SELECT quantity, unit_price FROM invoice_items WHERE invoice_id=?`,
+      [invoice_id]
+    );
+
+    const subtotal = allItems.reduce(
+      (sum, i) => sum + ((i.quantity || 0) * (i.unit_price || 0)),
+      0
+    );
+    const grand_total = subtotal;
+    const amount_paid = invoice.amount_paid || 0;
+    const amount_due = grand_total - amount_paid;
+
+    await connection.query(
+      `UPDATE invoices 
+       SET subtotal=?, grand_total=?, amount_paid=?, amount_due=? 
+       WHERE invoice_id=? AND signup_id=?`,
+      [subtotal, grand_total, amount_paid, amount_due, invoice_id, signup_id]
+    );
+
     await connection.commit();
-    res.status(200).json({message:"Invoice updated successfully"});
+    res.status(200).json({ message: "Invoice updated successfully" });
 
   } catch (error) {
     await connection.rollback();
-    console.error("Error updating quotation:", error);
+    console.error("Error updating invoice:", error);
     res.status(500).json({ error: "Internal server error" });
-  }finally{
+  } finally {
     connection.release();
-
   }
-
-
-
-}
+};
 
 
 module.exports = { createInvoice, updateInvoice };

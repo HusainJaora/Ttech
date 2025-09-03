@@ -153,37 +153,40 @@ const updateQuotation = async (req, res) => {
     await connection.beginTransaction();
 
     // 1. Check quotation status
-    const [quotation] = await connection.query(
-      `SELECT status FROM quotation WHERE quotation_id = ? AND signup_id = ?`,
+    const [quotationRows] = await connection.query(
+      `SELECT * FROM quotation WHERE quotation_id = ? AND signup_id = ?`,
       [quotation_id, signup_id]
     );
 
-    if (!quotation.length) {
+    if (!quotationRows.length) {
       await connection.rollback();
       return res.status(404).json({ error: "Quotation not found" });
     }
 
-    const currentStatus = quotation[0].status;
+    const quotation = quotationRows[0];
+    const currentStatus = (quotation.status || "").toUpperCase();
 
-    // Only allow update when Draft, Sent, or Rejected
-    if (!["Draft", "Rejected"].includes(currentStatus)) {
+    if (!["DRAFT", "REJECTED"].includes(currentStatus)) {
       await connection.rollback();
       return res.status(400).json({
-        error: `Quotation cannot be updated in '${currentStatus}' status`
+        error: `Quotation cannot be updated in '${quotation.status}' status`
       });
     }
 
     // 2. Update main quotation fields
     await connection.query(
-      `UPDATE quotation SET notes = ?, quotation_type = ? WHERE quotation_id = ? AND signup_id = ?`,
-      [notes || null, quotation_type || null, quotation_id, signup_id]
+      `UPDATE quotation 
+       SET notes = ?, quotation_type = ? 
+       WHERE quotation_id = ? AND signup_id = ?`,
+      [notes || "NA", quotation_type || null, quotation_id, signup_id]
     );
 
     // 3. Handle deleted items
     if (deleted_item_ids?.length) {
+      const placeholders = deleted_item_ids.map(() => "?").join(",");
       await connection.query(
-        `DELETE FROM quotation_items WHERE item_id IN (?) AND quotation_id = ?`,
-        [deleted_item_ids, quotation_id]
+        `DELETE FROM quotation_items WHERE item_id IN (${placeholders}) AND quotation_id = ?`,
+        [...deleted_item_ids, quotation_id]
       );
     }
 
@@ -194,51 +197,54 @@ const updateQuotation = async (req, res) => {
           // Update existing item
           await connection.query(
             `UPDATE quotation_items 
-              SET product_name = ?, product_category_id = ?, product_description = ?, warranty=?, quantity = ?, unit_price = ? 
-              WHERE item_id = ? AND quotation_id = ?`,
+             SET product_name=?, product_category_id=?, product_description=?, warranty=?, quantity=?, unit_price=? 
+             WHERE item_id=? AND quotation_id=?`,
             [
               item.product_name,
               item.product_category_id || null,
               item.product_description || null,
-              item.warranty,
-              item.quantity,
-              item.unit_price,
+              item.warranty || "",
+              item.quantity || 0,
+              item.unit_price || 0,
               item.item_id,
               quotation_id
             ]
           );
-
-
-
         } else {
           // Insert new item
           await connection.query(
             `INSERT INTO quotation_items 
-              (quotation_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
-              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (quotation_id, product_name, product_category_id, product_description, warranty, quantity, unit_price) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
               quotation_id,
               item.product_name,
               item.product_category_id || null,
               item.product_description || null,
-              item.warranty,
-              item.quantity,
-              item.unit_price
+              item.warranty || "",
+              item.quantity || 0,
+              item.unit_price || 0
             ]
           );
-
         }
-        const total_amount = items.reduce((sum, item) => sum + (item.quantity * item.unit_price), 0);
-        await connection.query(`
-              UPDATE quotation SET total_amount=? WHERE quotation_id=? AND signup_id=?
-              `, [
-          total_amount,
-          quotation_id,
-          signup_id])
-
       }
     }
 
+    // 5. Recalculate totals from DB (always, even if only deletes happened)
+    const [allItems] = await connection.query(
+      `SELECT quantity, unit_price FROM quotation_items WHERE quotation_id=?`,
+      [quotation_id]
+    );
+
+    const total_amount = allItems.reduce(
+      (sum, i) => sum + ((i.quantity || 0) * (i.unit_price || 0)),
+      0
+    );
+
+    await connection.query(
+      `UPDATE quotation SET total_amount=? WHERE quotation_id=? AND signup_id=?`,
+      [total_amount, quotation_id, signup_id]
+    );
 
     await connection.commit();
     res.status(200).json({ message: "Quotation updated successfully" });
@@ -251,6 +257,8 @@ const updateQuotation = async (req, res) => {
     connection.release();
   }
 };
+
+
 
 
 const deleteQuotation = async (req, res) => {
