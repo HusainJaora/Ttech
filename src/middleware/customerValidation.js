@@ -49,7 +49,6 @@ const addCustomerValidation = (req, res, next) => {
   next();
 };
 
-
 const updateCustomerValidation = (req, res, next) => {
   const schema = joi.object({
     customer_name: joi.string()
@@ -93,7 +92,31 @@ const updateCustomerValidation = (req, res, next) => {
   next();
 };
 
+const getAllCustomerValidation = async (req, res, next) => {
+    const schema = joi.object({
+        signup_id: joi.number()
+            .integer()
+            .positive()
+            .required()
+            .messages({
+                "any.required": "signup_id is required",
+                "number.base": "signup_id must be a number",
+                "number.integer": "signup_id must be an integer",
+                "number.positive": "signup_id must be a positive number"
+            })
+    }).unknown(true);
+
+    const { error } = schema.validate(req.user);
+
+    if (error) {
+        return res.status(400).json({
+            error: error.details[0].message
+        });
+    }
+    next();
+};
 
 
 
-module.exports = {addCustomerValidation,updateCustomerValidation};
+
+module.exports = {addCustomerValidation,updateCustomerValidation,getAllCustomerValidation};

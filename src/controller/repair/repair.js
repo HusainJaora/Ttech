@@ -109,7 +109,7 @@ const getAllRepair = async (req, res) => {
             `, [signup_id]);
 
         if (repairs.length === 0) {
-            return res.status(200).json({
+            return res.status(400).json({
                 message: "No repairs Found."
             })
         }

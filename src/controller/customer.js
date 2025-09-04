@@ -69,7 +69,7 @@ const updateCustomer = async (req, res) => {
             customer_email = COALESCE(?, customer_email),
             customer_address = COALESCE(?, customer_address)
             WHERE customer_id=? AND signup_id = ?  
-            `,[customer_name, customer_contact, customer_email, customer_address, customer_id, signup_id])
+            `, [customer_name, customer_contact, customer_email, customer_address, customer_id, signup_id])
 
         await connection.commit();
 
@@ -90,9 +90,35 @@ const updateCustomer = async (req, res) => {
         console.error("Error updating customer:", error);
         return res.status(500).json({ error: "Internal server error" });
 
-    }finally {
+    } finally {
         connection.release();
-      }
+    }
 }
 
-module.exports = { addCustomer, updateCustomer};
+const getAllcustomer = async (req, res) => {
+    const { signup_id } = req.user;
+
+    try {
+
+        const [customers] = await db.query(`
+            SELECT customer_id, customer_name, customer_contact, created_date, created_time
+            FROM customers
+            WHERE signup_id=?
+            ORDER BY customer_id DESC
+            `, [signup_id]);
+
+        if (customers.length === 0) {
+            return res.status(400).json({ message: "No customer found" });
+        }
+
+
+
+        res.status(200).json({ customers });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+
+    }
+}
+
+module.exports = { addCustomer, updateCustomer, getAllcustomer };
