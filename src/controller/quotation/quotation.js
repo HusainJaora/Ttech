@@ -1,8 +1,6 @@
 const db = require("../../db/database");
 const { createCustomer } = require("../../utils/getOrCreateCustomer");
 
-
-
 const addQuotation = async (req, res) => {
   const {
     customer_name,
@@ -258,9 +256,6 @@ const updateQuotation = async (req, res) => {
   }
 };
 
-
-
-
 const deleteQuotation = async (req, res) => {
   const { quotation_id } = req.params;
   const { signup_id } = req.user;
@@ -296,6 +291,138 @@ const deleteQuotation = async (req, res) => {
   }
 }
 
+const getAllQuotation = async (req, res) => {
+  const { signup_id } = req.user;
+
+  try {
+
+    const [quotations] = await db.query(`
+      SELECT q.quotation_id, q.quotation_no, c.customer_name, q.total_amount,q.status,
+      q.quotation_date, q.quotation_time
+      FROM quotation q
+      JOIN customers c ON q.customer_id = c.customer_id
+      WHERE q.signup_id=?
+      ORDER BY q.quotation_date DESC, q.quotation_time DESC
+      `, [signup_id]);
+
+    if (quotations.length === 0) {
+      return res.status(404).json({ message: "No quotation found" });
+    }
+    res.status(200).json({
+      total: quotations.length,
+      quotations
+    })
+
+  } catch (error) {
+    console.error("Error fetching quotations:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
 
 
-module.exports = { addQuotation, updateQuotation, deleteQuotation };
+}
+
+const getSingleQuotation = async (req, res) => {
+  const { quotation_id } = req.params;
+  const { signup_id } = req.user;
+
+  const connection = await db.getConnection();
+  try {
+    // 🔹 1. Get quotation + customer info
+    const [quotationRows] = await connection.query(
+      `SELECT 
+          q.quotation_id,
+          q.quotation_no,
+          q.quotation_serial,
+          q.quotation_type,
+          q.total_amount,
+          q.notes,
+          q.quotation_date,
+          q.quotation_time,
+          q.inquiry_id,
+          c.customer_id,
+          c.customer_name,
+          c.customer_contact,
+          c.customer_email,
+          c.customer_address
+       FROM quotation q
+       JOIN customers c ON q.customer_id = c.customer_id
+       WHERE q.quotation_id = ? AND q.signup_id = ?`,
+      [quotation_id, signup_id]
+    );
+
+    if (quotationRows.length === 0) {
+      return res.status(404).json({ error: "Quotation not found" });
+    }
+
+    const quotation = quotationRows[0];
+
+    // 🔹 2. Get quotation items
+    const [items] = await connection.query(
+      `SELECT 
+          item_id,
+          product_name,
+          product_category_id,
+          product_description,
+          warranty,
+          quantity,
+          unit_price,
+          (quantity * unit_price) AS line_total
+       FROM quotation_items
+       WHERE quotation_id = ?`,
+      [quotation_id]
+    );
+
+    // 🔹 3. If Repair → get linked inquiry
+    let inquiry = null;
+    if (quotation.inquiry_id) {
+      const [inq] = await connection.query(
+        `SELECT inquiry_id, inquiry_no, status
+         FROM inquires
+         WHERE inquiry_id = ? AND signup_id = ?`,
+        [quotation.inquiry_id, signup_id]
+      );
+      inquiry = inq.length > 0 ? inq[0] : null;
+    }
+
+    // 🔹 4. If Invoice exists → get invoice
+    const [invoiceRows] = await connection.query(
+      `SELECT invoice_id, invoice_no, grand_total, invoice_date, status
+       FROM invoices
+       WHERE source_type='QUOTATION' AND source_id = ? AND signup_id = ?`,
+      [quotation_id,signup_id]
+    );
+    const invoice = invoiceRows.length > 0 ? invoiceRows[0] : null;
+
+    // 🔹 5. Final response
+    res.status(200).json({
+      quotation: {
+        quotation_id: quotation.quotation_id,
+        quotation_no: quotation.quotation_no,
+        quotation_type: quotation.quotation_type,
+        quotation_date: quotation.quotation_date,
+        quotation_time: quotation.quotation_time,
+        total_amount: quotation.total_amount,
+        notes: quotation.notes,
+        customer: {
+          customer_id: quotation.customer_id,
+          customer_name: quotation.customer_name,
+          customer_contact: quotation.customer_contact,
+          customer_email: quotation.customer_email,
+          customer_address: quotation.customer_address
+        },
+        items,
+        inquiry,
+        invoice
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching single quotation:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    connection.release();
+  }
+};
+
+
+module.exports = { addQuotation, updateQuotation, deleteQuotation, getAllQuotation, getSingleQuotation };
