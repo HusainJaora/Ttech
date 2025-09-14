@@ -86,7 +86,7 @@ const createInvoice = async (req, res) => {
 
     else if (source_type === "REPAIR") {
       const [repairs] = await connection.query(
-        `SELECT * FROM repair WHERE repair_id=? AND signup_id=?`,
+        `SELECT * FROM repairs WHERE repair_id=? AND signup_id=?`,
         [source_id, signup_id]
       );
       if (!repairs.length) {
@@ -98,6 +98,12 @@ const createInvoice = async (req, res) => {
       if (!repair.quotation_id) {
         await connection.rollback();
         return res.status(400).json({ error: "Repair does not have linked quotation" });
+      }
+      
+      RepairCurrentStatus = repair.status
+      if(repair.status !=="Completed"){
+        await connection.rollback();
+        return res.status(400).json({ error: `Invoice cannot be created in ${RepairCurrentStatus}` });
       }
 
       const [quotations] = await connection.query(
@@ -114,7 +120,7 @@ const createInvoice = async (req, res) => {
       }
 
       const quotation = quotations[0];
-      if (quotation.status !== "ACCEPTED") {
+      if (quotation.status !== "Accepted") {
         await connection.rollback();
         return res.status(400).json({ error: "Cannot create invoice. Quotation is not accepted." });
       }
