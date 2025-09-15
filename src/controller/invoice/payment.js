@@ -33,7 +33,7 @@ const addPayment = async (req, res) => {
 
         const now = new Date();
         const istDateStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // 
-        const istTimeStr = now.toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Kolkata' }); 
+        const istTimeStr = now.toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Asia/Kolkata' });
 
 
         const [result] = await connection.query(`
@@ -161,6 +161,41 @@ const deletePayment = async (req, res) => {
         connection.release();
     }
 };
+const getSinglePayment = async (req, res) => {
+    const { invoice_id } = req.params;
+   
+    try {
+        const [rows] = await db.query(
+            `SELECT 
+            payment_id,
+            invoice_id,
+            payment_date,
+            payment_time,
+            amount,
+            payment_method,
+            reference_no,
+            notes,
+            created_date,
+            created_time
+         FROM payments
+         WHERE invoice_id = ? 
+         ORDER BY payment_date, payment_time`,
+            [invoice_id]
+        );
 
-module.exports = { addPayment, deletePayment };
+        res.status(200).json({
+            
+            invoice_id,
+            payment_history: rows
+        });
+    } catch (error) {
+        console.error("Error fetching payment history:", error);
+        res.status(500).json({  message: "Server error" });
+    }
+};
+
+
+
+
+module.exports = { addPayment, deletePayment, getSinglePayment };
 

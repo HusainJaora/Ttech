@@ -382,5 +382,41 @@ const updateInvoice = async (req, res) => {
   }
 };
 
+const getAllInvoice = async (req,res)=>{
+  const {signup_id}=req.user;
+  try {
+    const [invoices] = await db.query(`
+      SELECT 
+      i.invoice_id,
+      i.invoice_no,
+      i.invoice_date,
+      c.customer_name, 
+      i.status,
+      i.subtotal,
+      i.grand_total,
+      i.amount_paid,
+      i.amount_due,
+      i.created_date,
+      i.created_time
+      FROM invoices i
+      JOIN customers c ON i.customer_id = c.customer_id
+      WHERE i.signup_id = ?
+      ORDER BY i.created_date DESC, i.created_date DESC
+      `,[signup_id])
 
-module.exports = { createInvoice, updateInvoice };
+    if (invoices.length === 0) {
+        return res.status(404).json({ message: "No Invoice found" })
+    }
+
+    res.status(200).json({
+      invoices })
+
+  } catch (error) {
+    console.error("Error fetching invoice:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+    
+  }
+}
+
+
+module.exports = { createInvoice, updateInvoice, getAllInvoice };
