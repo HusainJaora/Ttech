@@ -418,5 +418,155 @@ const getAllInvoice = async (req,res)=>{
   }
 }
 
+const getSingleInvoice = async (req, res) => {
+  const { invoice_id } = req.params;
+  const { signup_id } = req.user; // logged-in user
+  const connection = await db.getConnection();
 
-module.exports = { createInvoice, updateInvoice, getAllInvoice };
+  try {
+    // 1. Fetch invoice info with customer info (filtered by signup_id)
+    const [invoiceRows] = await connection.query(
+      `SELECT 
+         i.invoice_id,
+         i.invoice_no,
+         i.invoice_date,
+         i.bill_to_name,
+         i.bill_to_address,
+         i.source_type,
+         i.source_id,
+         i.status,
+         i.subtotal,
+         i.grand_total,
+         i.amount_paid,
+         i.amount_due,
+         i.notes_public,
+         i.notes_internal,
+         i.created_date,
+         i.created_time,
+         i.updated_at,
+         c.customer_id,
+         c.customer_name,
+         c.customer_contact,
+         c.customer_email,
+         c.customer_address
+       FROM invoices i
+       LEFT JOIN customers c ON i.customer_id = c.customer_id
+       WHERE i.invoice_id = ? AND i.signup_id = ?`,
+      [invoice_id, signup_id]
+    );
+
+    if (invoiceRows.length === 0) {
+      return res.status(404).json({ message: 'Invoice not found or access denied' });
+    }
+
+    const invoice = invoiceRows[0];
+
+    // 2. Fetch invoice items (excluding cost_price and supplier_id)
+    const [itemsRows] = await connection.query(
+      `SELECT 
+         invoice_item_id,
+         invoice_id,
+         product_name,
+         product_category_id,
+         product_description,
+         warranty,
+         quantity,
+         unit_price,
+         total_price
+       FROM invoice_items
+       WHERE invoice_id = ?`,
+      [invoice_id]
+    );
+
+    // 3. Fetch payments history
+    const [paymentsRows] = await connection.query(
+      `SELECT * FROM payments WHERE invoice_id = ?`,
+      [invoice_id]
+    );
+
+    // 4. Fetch repair info if source_type = 'REPAIR'
+    let repair = null;
+    if (invoice.source_type === 'REPAIR') {
+      const [repairRows] = await connection.query(
+        `SELECT 
+           r.repair_no,
+           q.quotation_no,
+           i.inquiry_no,
+           t.technician_name,
+           r.repair_status,
+           r.created_date,
+           r.created_time
+         FROM repairs r
+         JOIN quotation q ON r.quotation_id = q.quotation_id
+         JOIN inquires i ON r.inquiry_id = i.inquiry_id
+         JOIN technicians t ON r.technician_id = t.technician_id
+         WHERE r.repair_id = ?`,
+        [invoice.source_id]
+      );
+
+      if (repairRows.length > 0) repair = repairRows[0];
+    }
+
+    // 5. Fetch quotation info if source_type = 'QUOTATION'
+    let quotation = null;
+    if (invoice.source_type === 'QUOTATION') {
+      const [quotationRows] = await connection.query(
+        `SELECT 
+           quotation_no,
+           quotation_date,
+           quotation_time,
+           total_amount,
+           status
+         FROM quotation
+         WHERE quotation_id = ?`,
+        [invoice.source_id]
+      );
+
+      if (quotationRows.length > 0) quotation = quotationRows[0];
+    }
+
+    // 6. Send final response
+    res.status(200).json({
+      invoice: {
+        invoice_id: invoice.invoice_id,
+        invoice_no: invoice.invoice_no,
+        created_date: invoice.created_date,
+        created_time: invoice.created_time,
+        invoice_date: invoice.invoice_date,
+        bill_to_name: invoice.bill_to_name,
+        bill_to_address: invoice.bill_to_address,
+        ship_to_name: invoice.ship_to_name,
+        ship_to_address: invoice.ship_to_address,
+        source_type: invoice.source_type,
+        status: invoice.status,
+        subtotal: invoice.subtotal,
+        grand_total: invoice.grand_total,
+        amount_paid: invoice.amount_paid,
+        amount_due: invoice.amount_due,
+        notes_public: invoice.notes_public,
+        notes_internal: invoice.notes_internal,
+        updated_at: invoice.updated_at
+      },
+      customer: invoice.customer_id ? {
+        customer_id: invoice.customer_id,
+        customer_name: invoice.customer_name,
+        customer_contact: invoice.customer_contact,
+        customer_email: invoice.customer_email,
+        customer_address: invoice.customer_address
+      } : null,
+      items: itemsRows,
+      payments: paymentsRows,
+      repair,
+      quotation
+    });
+
+  } catch (error) {
+    console.error('Error fetching invoice detail:', error);
+    res.status(500).json({ message: 'Server error',error });
+  } finally {
+    connection.release();
+  }
+};
+
+
+module.exports = { createInvoice, updateInvoice, getAllInvoice, getSingleInvoice };
