@@ -99,9 +99,9 @@ const createInvoice = async (req, res) => {
         await connection.rollback();
         return res.status(400).json({ error: "Repair does not have linked quotation" });
       }
-      
+
       RepairCurrentStatus = repair.status
-      if(repair.status !=="Completed"){
+      if (repair.status !== "Completed") {
         await connection.rollback();
         return res.status(400).json({ error: `Invoice cannot be created in ${RepairCurrentStatus}` });
       }
@@ -382,8 +382,8 @@ const updateInvoice = async (req, res) => {
   }
 };
 
-const getAllInvoice = async (req,res)=>{
-  const {signup_id}=req.user;
+const getAllInvoice = async (req, res) => {
+  const { signup_id } = req.user;
   try {
     const [invoices] = await db.query(`
       SELECT 
@@ -402,19 +402,20 @@ const getAllInvoice = async (req,res)=>{
       JOIN customers c ON i.customer_id = c.customer_id
       WHERE i.signup_id = ?
       ORDER BY i.created_date DESC, i.created_date DESC
-      `,[signup_id])
+      `, [signup_id])
 
     if (invoices.length === 0) {
-        return res.status(404).json({ message: "No Invoice found" })
+      return res.status(404).json({ message: "No Invoice found" })
     }
 
     res.status(200).json({
-      invoices })
+      invoices
+    })
 
   } catch (error) {
     console.error("Error fetching invoice:", error);
     res.status(500).json({ error: "Internal Server Error" });
-    
+
   }
 }
 
@@ -562,11 +563,13 @@ const getSingleInvoice = async (req, res) => {
 
   } catch (error) {
     console.error('Error fetching invoice detail:', error);
-    res.status(500).json({ message: 'Server error',error });
+    res.status(500).json({ message: 'Server error', error });
   } finally {
     connection.release();
   }
 };
 
 
-module.exports = { createInvoice, updateInvoice, getAllInvoice, getSingleInvoice };
+
+
+module.exports = { createInvoice, updateInvoice, getAllInvoice, getSingleInvoice};

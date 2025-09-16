@@ -18,6 +18,7 @@ const customer = require("./routes/customerRoute.js");
 const refreshToken = require("./routes/refreshTokenRouter.js");
 const invoiceRoute = require("./routes/invoice/invoiceRoute.js");
 const invoiceStatusRoute = require("./routes/invoice/invoiceStatusRoute.js");
+const purchaseRoute = require("./routes/purchaseRoute.js");
 
 const paymentRoute = require("./routes/invoice/paymentRoute.js");
 
@@ -52,6 +53,8 @@ app.use("/customer",customer);
 app.use("/invoice",invoiceRoute);
 app.use("/invoice-status",invoiceStatusRoute)
 app.use("/invoice-payment/",paymentRoute);
+
+app.use("/purchase",purchaseRoute)
 
 
 const PORT = process.env.PORT || 5000;

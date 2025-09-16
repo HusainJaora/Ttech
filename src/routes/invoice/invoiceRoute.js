@@ -9,4 +9,6 @@ router.put("/update-invoice/:invoice_id",validateToken,updateInvoiceValidation,u
 router.get("/",validateToken,getAllInvoice);
 router.get("/invoice-detail/:invoice_id",validateToken,getSingleInvoice);
 
+
+
 module.exports = router;
