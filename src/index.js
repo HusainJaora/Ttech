@@ -19,8 +19,8 @@ const refreshToken = require("./routes/refreshTokenRouter.js");
 const invoiceRoute = require("./routes/invoice/invoiceRoute.js");
 const invoiceStatusRoute = require("./routes/invoice/invoiceStatusRoute.js");
 const purchaseRoute = require("./routes/purchaseRoute.js");
-
 const paymentRoute = require("./routes/invoice/paymentRoute.js");
+const searchRoute = require("./routes/searchroute.js");
 
 const app = express();
 app.use(helmet());
@@ -54,7 +54,10 @@ app.use("/invoice",invoiceRoute);
 app.use("/invoice-status",invoiceStatusRoute)
 app.use("/invoice-payment/",paymentRoute);
 
-app.use("/purchase",purchaseRoute)
+app.use("/purchase",purchaseRoute);
+
+app.use("/search",searchRoute);
+
 
 
 const PORT = process.env.PORT || 5000;
