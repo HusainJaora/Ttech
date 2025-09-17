@@ -157,9 +157,62 @@ const deletePurchasePrice = async (req, res) => {
 
 
 
+const getAllPurchases = async (req, res) => {
+  const { signup_id } = req.user;
+  const { supplier_id, start_date, end_date, search } = req.query;
+
+  const connection = await db.getConnection();
+  try {
+    let query = `
+      SELECT 
+        i.invoice_no,
+        i.invoice_date,
+        ii.product_name,
+        ii.quantity,
+        ii.cost_price,
+        (ii.quantity * ii.cost_price) AS total_cost,
+        s.supplier_Legal_name
+      FROM invoice_items ii
+      JOIN invoices i ON ii.invoice_id = i.invoice_id
+      LEFT JOIN suppliers s ON ii.supplier_id = s.supplier_id
+      WHERE i.signup_id = ?
+    `;
+    const params = [signup_id];
+
+    if (supplier_id) {
+      query += ` AND ii.supplier_id = ?`;
+      params.push(supplier_id);
+    }
+    if (start_date && end_date) {
+      query += ` AND i.invoice_date BETWEEN ? AND ?`;
+      params.push(start_date, end_date);
+    }
+    if (search) {
+      query += ` AND (i.invoice_no LIKE ? OR s.supplier_Legal_name LIKE ? OR ii.product_name LIKE ?)`;
+      const like = `%${search}%`;
+      params.push(like, like, like);
+    }
+
+    query += ` ORDER BY i.invoice_date DESC`;
+
+    const [rows] = await connection.query(query, params);
+
+    res.status(200).json({
+      purchases: rows,
+      count: rows.length
+    });
+  } catch (error) {
+    console.error("Error fetching purchases:", error);
+    res.status(500).json({ message: "Server error", error });
+  } finally {
+    connection.release();
+  }
+};
+
 
 module.exports = {
     addPurchasePrice,
     updatePurchasePrice,
-    deletePurchasePrice
+    deletePurchasePrice,
+    getAllPurchases
 }
