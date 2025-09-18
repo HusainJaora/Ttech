@@ -21,6 +21,7 @@ const invoiceStatusRoute = require("./routes/invoice/invoiceStatusRoute.js");
 const purchaseRoute = require("./routes/purchaseRoute.js");
 const paymentRoute = require("./routes/invoice/paymentRoute.js");
 const searchRoute = require("./routes/searchroute.js");
+const exportToExcelRoute = require("./routes/exportToExcelRoute.js");
 
 const app = express();
 app.use(helmet());
@@ -57,6 +58,8 @@ app.use("/invoice-payment/",paymentRoute);
 app.use("/purchase",purchaseRoute);
 
 app.use("/search",searchRoute);
+
+app.use("/export",exportToExcelRoute);
 
 
 
