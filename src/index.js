@@ -22,6 +22,7 @@ const purchaseRoute = require("./routes/purchaseRoute.js");
 const paymentRoute = require("./routes/invoice/paymentRoute.js");
 const searchRoute = require("./routes/searchroute.js");
 const exportToExcelRoute = require("./routes/exportToExcelRoute.js");
+const userDashboardRoute = require("./routes/dashboard/userDashboardRoute.js");
 
 const app = express();
 app.use(helmet());
@@ -60,6 +61,8 @@ app.use("/purchase",purchaseRoute);
 app.use("/search",searchRoute);
 
 app.use("/export",exportToExcelRoute);
+
+app.use("/dashboard",userDashboardRoute);
 
 
 
