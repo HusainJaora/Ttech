@@ -4,14 +4,14 @@ const jwt = require("jsonwebtoken");
 const { generateRefreshToken, hashtoken } = require("../utils/tokenutils");
 
 const signup = async (req, res) => {
-    const { username, email, password, shop_name } = req.body;
+    const { username, email, password} = req.body;
 
     try {
         const hashpassword = await bcrypt.hash(password, 10);
 
          await db.query(
-            "INSERT INTO signup (username, shop_name, email, password) VALUES (?, ?, ?, ?)",
-            [username.trim(), shop_name.trim(), email.trim().toLowerCase(), hashpassword]
+            "INSERT INTO signup (username, email, password) VALUES (?, ?, ?)",
+            [username.trim(), email.trim().toLowerCase(), hashpassword]
         );
 
         res.status(200).json({ message: "User registered successfully" });

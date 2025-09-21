@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const validateToken = require("../../middleware/authToken");
-const { getRevenue, getSixMonthRevenue,getOutstandingTotal,getOutstandingInvoices, getRepairStatusCounts,getRepairsByStatus } = require("../../controller/dashboard/userdashboard");
+const { getRevenue, getSixMonthRevenue,getOutstandingTotal,getTodaysInvoices,getOutstandingInvoices, getRepairStatusCounts,getRepairsByStatus } = require("../../controller/dashboard/userdashboard");
 
-
+// clicable links from dashboard
 router.get("/outstanding-invoices", validateToken, getOutstandingInvoices);
 router.get("/repair-by-status/:status", validateToken, getRepairsByStatus);
 
@@ -14,12 +14,14 @@ router.get("/", validateToken, async (req, res) => {
     const sixMonths = await getSixMonthRevenue(req, res, true);
     const OutstandingTotal = await getOutstandingTotal(req, res, true);
     const RepairStatusCounts = await getRepairStatusCounts(req, res, true);
+    const TodaysInvoices = await getTodaysInvoices(req, res, true);
 
     res.json({
       revenue,
       sixMonths,
       OutstandingTotal,
-      RepairStatusCounts
+      RepairStatusCounts,
+      TodaysInvoices
 
     });
   } catch (error) {

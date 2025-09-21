@@ -51,19 +51,7 @@ const signupValidation = async (req, res, next) => {
         "any.required": "Username is required",
       }),
 
-    shop_name: joi.string()
-      .trim()
-      .min(2)
-      .max(100)
-      .required()
-      .messages({
-        "string.base": "Shop name must be a string",
-        "string.empty": "Shop name is required",
-        "string.min": "Shop name must be at least 2 characters",
-        "string.max": "Shop name must be less than or equal to 100 characters",
-        "any.required": "Shop name is required",
-      }),
-
+  
     email: joi.string()
       .trim()
       .email()

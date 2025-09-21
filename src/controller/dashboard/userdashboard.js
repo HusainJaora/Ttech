@@ -154,6 +154,89 @@ const getOutstandingTotal = async (req, res, returnData = false) => {
   }
 };
 
+// operations repair status
+const getRepairStatusCounts = async (req, res, returnData = false) => {
+  const { signup_id } = req.user; // from JWT auth
+
+  try {
+    const [rows] = await db.query(
+      `
+      SELECT s.status,
+             COUNT(r.repair_id) AS status_count
+      FROM (
+          SELECT 'Pending' AS status
+          UNION ALL
+          SELECT 'In Progress'
+          UNION ALL
+          SELECT 'Completed'
+          UNION ALL
+          SELECT 'Delivered'
+      ) s
+      LEFT JOIN repairs r 
+        ON r.repair_status = s.status 
+       AND r.signup_id = ?
+      GROUP BY s.status
+      ORDER BY FIELD(s.status, 'Pending','In Progress','Completed','Delivered')
+      `,
+      [signup_id]
+    );
+
+    const result = { repairStatusCounts: rows };
+
+    if (returnData) return result;
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching repair status counts:", error);
+    if (returnData) throw error;
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Todays Invoice
+const getTodaysInvoices = async (req, res, returnData = false) => {
+  const { signup_id } = req.user;
+
+  try {
+    const [invoices] = await db.query(
+      `
+      SELECT 
+        i.invoice_id,
+        i.invoice_no,
+        i.invoice_date,
+        c.customer_name, 
+        i.status,
+        i.subtotal,
+        i.grand_total,
+        i.amount_paid,
+        i.amount_due,
+        i.created_date,
+        i.created_time
+      FROM invoices i
+      JOIN customers c ON i.customer_id = c.customer_id
+      WHERE i.signup_id = ?
+        AND i.invoice_date = CURDATE()
+      ORDER BY i.created_date DESC, i.created_time DESC
+      `,
+      [signup_id]
+    );
+
+    const result = {
+      count: invoices.length,
+      data: invoices
+    };
+
+    if (returnData) return result;   // return data to caller
+    res.status(200).json(result);    // otherwise send JSON response
+  } catch (error) {
+    console.error("Error fetching today's invoices:", error);
+    if (returnData) throw error;
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+//                            This are the clicable links from the dashboard
+
 // outstanding invoice list
 const getOutstandingInvoices = async (req, res) => {
   const { signup_id } = req.user;
@@ -193,47 +276,7 @@ const getOutstandingInvoices = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
-
-// operations repair status
-const getRepairStatusCounts = async (req, res, returnData = false) => {
-  const { signup_id } = req.user; // from JWT auth
-
-  try {
-    const [rows] = await db.query(
-      `
-      SELECT s.status,
-             COUNT(r.repair_id) AS status_count
-      FROM (
-          SELECT 'Pending' AS status
-          UNION ALL
-          SELECT 'In Progress'
-          UNION ALL
-          SELECT 'Completed'
-          UNION ALL
-          SELECT 'Delivered'
-      ) s
-      LEFT JOIN repairs r 
-        ON r.repair_status = s.status 
-       AND r.signup_id = ?
-      GROUP BY s.status
-      ORDER BY FIELD(s.status, 'Pending','In Progress','Completed','Delivered')
-      `,
-      [signup_id]
-    );
-
-    const result = { repairStatusCounts: rows };
-
-    if (returnData) return result;
-    res.status(200).json(result);
-  } catch (error) {
-    console.error("Error fetching repair status counts:", error);
-    if (returnData) throw error;
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// this is clicable for above controller can get only filtered status like only pending
+// filtered status according to user click
 const getRepairsByStatus = async (req, res) => {
   const { signup_id } = req.user;
   const { status } = req.params; // e.g., Pending, In Progress, Completed, Delivered
@@ -277,4 +320,5 @@ const getRepairsByStatus = async (req, res) => {
 
 
 
-module.exports = { getRevenue, getSixMonthRevenue, getOutstandingTotal, getOutstandingInvoices,getRepairStatusCounts, getRepairsByStatus };
+
+module.exports = { getRevenue, getSixMonthRevenue, getOutstandingTotal,getTodaysInvoices, getOutstandingInvoices,getRepairStatusCounts, getRepairsByStatus };
