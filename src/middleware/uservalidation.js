@@ -2,22 +2,6 @@ const joi = require("joi");
 const db = require("../db/database");
 const rateLimit = require("express-rate-limit");
 
-// const validateDuplicateUser=async(req,res,next)=>{
-//     const {username, email} = req.body
-//     try {
-//         const [existing] = await db.query(
-//             "SELECT * FROM signup WHERE email =? OR username=?",[email.trim(),username.trim()] 
-//         );
-//         if(existing.length >0){
-//             return res.status(409).json({error:"User already exists with same email or username"});
-//         }
-//         next();
-
-//     } catch (error) {
-//         res.status(500).json({error:error.message});
-
-//     }
-// }
 
 const validateDuplicateUser = async (req, res, next) => {
   const { email } = req.body;

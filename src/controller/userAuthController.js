@@ -3,26 +3,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { generateRefreshToken, hashtoken } = require("../utils/tokenutils");
 
-const signup = async (req, res) => {
-    const { username, email, password} = req.body;
-
-    try {
-        const hashpassword = await bcrypt.hash(password, 10);
-
-         await db.query(
-            "INSERT INTO signup (username, email, password) VALUES (?, ?, ?)",
-            [username.trim(), email.trim().toLowerCase(), hashpassword]
-        );
-
-        res.status(200).json({ message: "User registered successfully" });
-    } catch (error) {
-        if (error.code === "ER_DUP_ENTRY") {
-            res.status(409).json({ error: "User with this email or username already exists" });
-        } else {
-            res.status(500).json({ error: error.message });
-        }
-    }
-};
 
 const login = async (req, res) => {
     const { email, password } = req.body;
@@ -53,7 +33,7 @@ const login = async (req, res) => {
 
         // 4. Generate short-lived access token
         const accessToken = jwt.sign(
-            { signup_id: user.signup_id },
+            { signup_id: user.signup_id, is_admin: user.is_admin },
             process.env.JWT_SECRET,
             { expiresIn: "15m" }
         );
@@ -89,8 +69,5 @@ const login = async (req, res) => {
 };
 
 
-
-module.exports = {
-    signup,
-    login
-}
+module.exports =  login;
+   
