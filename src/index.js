@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 const userAuth = require("./routes/userAuthRoutes.js");
 const userProfileRoute = require("./routes/userProfile/profileRoute.js");
+const termsAndConditionRoute = require("./routes/userProfile/terms&ConditionRoute.js");
 const createUserRoute = require("./routes/admin/adminRoute.js");
 const masterAddingRoute = require("./routes/Master/addMasterRoute.js");
 const addquotationRoute = require("./routes/quotation/quotationRoute.js");
@@ -38,9 +39,10 @@ app.get("/", (req, res) => {
 
 app.use("/auth",userAuth);
 app.use("/create-user",createUserRoute);
-app.use("/refresh",refreshToken)
+app.use("/refresh",refreshToken);
 
-app.use("/profile",userProfileRoute)
+app.use("/profile",userProfileRoute);
+app.use("/terms&Condition",termsAndConditionRoute)
 
 app.use("/quotation",addquotationRoute);
 app.use("/quotation-status",quotationStatus);
